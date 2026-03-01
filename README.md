@@ -6,6 +6,8 @@
 [![Tests](https://github.com/snazzybean/roomsense/actions/workflows/ci.yml/badge.svg)](https://github.com/snazzybean/roomsense/actions/workflows/ci.yml)
 ![Coverage](https://raw.githubusercontent.com/snazzybean/roomsense/python-coverage-comment-action-data/badge.svg)
 
+[![Open your Home Assistant instance and open RoomSense inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=snazzybean&repository=roomsense&category=integration)
+
 **Intelligent room climate control for Home Assistant** — self-learning thermal model, proportional valve control, and a dedicated management panel.
 
 ---
