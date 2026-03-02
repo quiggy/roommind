@@ -210,6 +210,18 @@ export class RsScheduleSettings extends LitElement {
       width: 100%;
     }
 
+    .helper-link {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+
+    .helper-link:hover {
+      text-decoration: underline;
+    }
+
     /* No schedules */
     .no-schedules {
       font-size: 13px;
@@ -545,22 +557,16 @@ export class RsScheduleSettings extends LitElement {
       <div class="add-schedule-row">
         <ha-select
           .value=${""}
-          .options=${[
-            { value: "", label: localize("schedule.add_schedule", l) },
-            ...availableEntities.map((entityId) => ({
-              value: entityId,
-              label: (this.hass.states[entityId]?.attributes?.friendly_name as string) || entityId,
-            })),
-          ]}
+          .label=${localize("schedule.select_schedule", l)}
+          .options=${availableEntities.map((entityId) => ({
+            value: entityId,
+            label: (this.hass.states[entityId]?.attributes?.friendly_name as string) || entityId,
+          }))}
           @selected=${this._onAddSchedule}
           @closed=${(e: Event) => e.stopPropagation()}
           fixedMenuPosition
           naturalMenuWidth
         >
-          <ha-list-item value="">
-            <ha-icon icon="mdi:plus" slot="graphic"></ha-icon>
-            ${localize("schedule.add_schedule", l)}
-          </ha-list-item>
           ${availableEntities.map((entityId) => {
             const entityState = this.hass.states[entityId];
             const friendlyName =
@@ -572,6 +578,9 @@ export class RsScheduleSettings extends LitElement {
             `;
           })}
         </ha-select>
+        <a href="/config/helpers" target="_top" class="helper-link">
+          ${localize("schedule.create_helper_hint", l)}
+        </a>
       </div>
     `;
   }

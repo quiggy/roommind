@@ -73,6 +73,8 @@
   "mode.idle": "Standby",
 
   "schedule.add_schedule": "Zeitplan hinzufügen",
+  "schedule.select_schedule": "Zeitplan-Helfer auswählen",
+  "schedule.create_helper_hint": "Neuen Zeitplan-Helfer in HA erstellen",
   "schedule.selector_label": "Zeitplan-Auswahl",
   "schedule.selector_value_boolean": "Aktuell: {value}",
   "schedule.selector_value_number": "Aktueller Wert: {value}",

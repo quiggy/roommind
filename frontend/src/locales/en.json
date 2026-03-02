@@ -73,6 +73,8 @@
   "mode.idle": "Standby",
 
   "schedule.add_schedule": "Add schedule",
+  "schedule.select_schedule": "Select schedule helper",
+  "schedule.create_helper_hint": "Create new schedule helper in HA settings",
   "schedule.selector_label": "Schedule selector entity",
   "schedule.selector_value_boolean": "Current: {value}",
   "schedule.selector_value_number": "Current value: {value}",
