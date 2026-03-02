@@ -1,4 +1,4 @@
-"""Analytics temperature prediction simulator for RoomSense."""
+"""Analytics temperature prediction simulator for RoomMind."""
 
 from __future__ import annotations
 

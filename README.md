@@ -1,12 +1,12 @@
-# RoomSense
+# RoomMind
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://github.com/snazzybean/roomsense/actions/workflows/ci.yml/badge.svg)](https://github.com/snazzybean/roomsense/actions/workflows/ci.yml)
-![Coverage](https://raw.githubusercontent.com/snazzybean/roomsense/python-coverage-comment-action-data/badge.svg)
+[![Tests](https://github.com/snazzybean/roommind/actions/workflows/ci.yml/badge.svg)](https://github.com/snazzybean/roommind/actions/workflows/ci.yml)
+![Coverage](https://raw.githubusercontent.com/snazzybean/roommind/python-coverage-comment-action-data/badge.svg)
 
-[![Open your Home Assistant instance and open RoomSense inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=snazzybean&repository=roomsense&category=integration)
+[![Open your Home Assistant instance and open RoomMind inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=snazzybean&repository=roommind&category=integration)
 
 **Intelligent room climate control for Home Assistant** — self-learning thermal model, proportional valve control, and a dedicated management panel.
 
@@ -25,7 +25,7 @@
 - **Mold Risk Detection & Prevention** — Science-based mold risk assessment using surface humidity estimation (DIN 4108-2). Configurable notifications and automatic temperature raise to prevent mold growth.
 - **Valve Protection** — Periodic cycling of idle TRV valves to prevent seizing and calcification.
 - **Analytics Dashboard** — Temperature charts with heating power, solar irradiance, and model predictions over 24h to 90 days.
-- **Two Operating Modes** — Full Control (RoomSense decides heating/cooling) or Managed Mode (device self-regulates).
+- **Two Operating Modes** — Full Control (RoomMind decides heating/cooling) or Managed Mode (device self-regulates).
 - **Mobile Ready** — Responsive layout with HA-native toolbar for the iOS/Android companion app.
 - **Multilingual** — English and German, auto-detected from your HA language setting.
 
@@ -37,31 +37,31 @@
 
 1. Open HACS in Home Assistant
 2. Click the three-dot menu → **Custom repositories**
-3. Add `https://github.com/snazzybean/roomsense` as an **Integration**
-4. Search for "RoomSense" and install it
+3. Add `https://github.com/snazzybean/roommind` as an **Integration**
+4. Search for "RoomMind" and install it
 5. Restart Home Assistant
-6. Go to **Settings → Devices & Services → Add Integration → RoomSense**
+6. Go to **Settings → Devices & Services → Add Integration → RoomMind**
 
 ### Manual
 
-1. Copy the `custom_components/roomsense/` folder to your `config/custom_components/` directory
+1. Copy the `custom_components/roommind/` folder to your `config/custom_components/` directory
 2. Restart Home Assistant
-3. Go to **Settings → Devices & Services → Add Integration → RoomSense**
+3. Go to **Settings → Devices & Services → Add Integration → RoomMind**
 
 ---
 
 ## Quick Start
 
-After installation, RoomSense appears as a panel in the HA sidebar.
+After installation, RoomMind appears as a panel in the HA sidebar.
 
-1. **Open RoomSense** from the sidebar — you'll see all your HA areas as room cards
+1. **Open RoomMind** from the sidebar — you'll see all your HA areas as room cards
 2. **Click a room card** to open the detail view
 3. **Add devices** — assign at least one thermostat or AC (climate entity)
 4. **Add a temperature sensor** (optional but recommended) — enables Full Control mode with proportional valve control
 5. **Add a schedule** — create a `schedule.*` helper in HA and assign it to the room
 6. **Set temperatures** — configure comfort (schedule on) and eco (schedule off) temperatures
 
-RoomSense starts controlling your climate devices immediately. If MPC mode is enabled (default), the thermal model begins learning your room's characteristics in the background.
+RoomMind starts controlling your climate devices immediately. If MPC mode is enabled (default), the thermal model begins learning your room's characteristics in the background.
 
 ---
 
@@ -87,7 +87,7 @@ Click any room card to open the detail view with these configuration sections:
 
 #### Devices
 
-Assign `climate.*` entities to the room. RoomSense auto-detects the device type:
+Assign `climate.*` entities to the room. RoomMind auto-detects the device type:
 - **Thermostat** — entity only supports `heat` mode
 - **AC** — entity supports `cool` or `heat_cool` mode
 
@@ -95,13 +95,13 @@ You can override the auto-detection if needed. A room needs at least one thermos
 
 #### Sensors
 
-- **Temperature sensor** — an external room temperature sensor. When set, enables **Full Control** mode where RoomSense directly decides heating/cooling/idle. Without it, the room operates in **Managed Mode** where the device self-regulates.
+- **Temperature sensor** — an external room temperature sensor. When set, enables **Full Control** mode where RoomMind directly decides heating/cooling/idle. Without it, the room operates in **Managed Mode** where the device self-regulates.
 - **Humidity sensor** — optional, shown on the dashboard and in analytics. Required for mold risk detection.
 - **Window/door sensors** — assign `binary_sensor.*` entities (device class: window or door). Climate control pauses when any sensor reports "open". Configure **open delay** and **close delay** (in seconds) to prevent brief openings from interrupting climate control.
 
 #### Schedules
 
-Assign one or more `schedule.*` helper entities. Each schedule defines time blocks — when a block is active, RoomSense uses its temperature (if set) or the room's comfort temperature. Outside schedule blocks, eco temperature is used.
+Assign one or more `schedule.*` helper entities. Each schedule defines time blocks — when a block is active, RoomMind uses its temperature (if set) or the room's comfort temperature. Outside schedule blocks, eco temperature is used.
 
 **Multiple schedules:** Use a `schedule_selector_entity` to switch between schedules:
 - `input_boolean` — off = schedule 1, on = schedule 2
@@ -136,7 +136,7 @@ Optionally assign `person.*` entities per room. The room's comfort schedule only
 
 ![Settings Page](docs/images/page-settings.png)
 
-Access settings via the gear tab in the RoomSense panel.
+Access settings via the gear tab in the RoomMind panel.
 
 #### General
 
@@ -203,7 +203,7 @@ Hover over heating periods to see the exact power percentage and calculated TRV 
 
 ### Target Temperature Priority
 
-RoomSense resolves the target temperature using this priority chain:
+RoomMind resolves the target temperature using this priority chain:
 
 ```
 Manual Override  →  Vacation  →  Presence Away  →  Schedule Block  →  Comfort / Eco  (+Mold Delta)
@@ -219,7 +219,7 @@ Manual Override  →  Vacation  →  Presence Away  →  Schedule Block  →  Co
 
 ### MPC Climate Control
 
-RoomSense uses Model Predictive Control — a self-learning approach that builds a thermal model of each room:
+RoomMind uses Model Predictive Control — a self-learning approach that builds a thermal model of each room:
 
 1. **Learning phase** — The Extended Kalman Filter (EKF) observes temperature changes during heating, cooling, and idle periods. It learns the room's heat loss rate, heating power, cooling power, and solar responsiveness.
 
@@ -229,20 +229,20 @@ RoomSense uses Model Predictive Control — a self-learning approach that builds
 
 4. **Proportional control** — Instead of binary on/off, TRVs receive a calculated setpoint between the current temperature and 30 °C based on the optimal power fraction. This produces smoother temperature curves with less overshoot.
 
-**Automatic fallback:** Until the model is calibrated (needs ~60 idle samples and ~20 heating/cooling samples), RoomSense automatically uses simple on/off control with 0.2 °C hysteresis.
+**Automatic fallback:** Until the model is calibrated (needs ~60 idle samples and ~20 heating/cooling samples), RoomMind automatically uses simple on/off control with 0.2 °C hysteresis.
 
 ### Full Control vs. Managed Mode
 
 | | Full Control | Managed Mode |
 |---|---|---|
 | **When** | External temperature sensor assigned | No external temperature sensor |
-| **How** | RoomSense decides HEATING / COOLING / IDLE | RoomSense sets target temp, device self-regulates |
+| **How** | RoomMind decides HEATING / COOLING / IDLE | RoomMind sets target temp, device self-regulates |
 | **TRV behavior** | Proportional setpoint (MPC) or boost target (on/off) | Actual target temperature sent to device |
 | **Best for** | Maximum control with external sensors | Simple setups or devices with good built-in control |
 
 ### Solar Gain Modeling
 
-RoomSense estimates solar heat gain using:
+RoomMind estimates solar heat gain using:
 - **Sun position** calculated from your HA latitude/longitude (NOAA algorithm)
 - **Clear-sky model** (Meinel) for theoretical maximum irradiance
 - **Cloud attenuation** from your weather entity's cloud coverage (if configured)
@@ -260,16 +260,16 @@ Three tiers of accuracy depending on configuration:
 
 ## Entities Created
 
-RoomSense creates two sensor entities per configured room:
+RoomMind creates two sensor entities per configured room:
 
 | Entity | Description |
 |--------|-------------|
-| `sensor.roomsense_{area_id}_target_temp` | Current target temperature (°C) |
-| `sensor.roomsense_{area_id}_mode` | Current mode: `idle`, `heating`, or `cooling` |
+| `sensor.roommind_{area_id}_target_temp` | Current target temperature (°C) |
+| `sensor.roommind_{area_id}_mode` | Current mode: `idle`, `heating`, or `cooling` |
 
 These can be used in HA automations, dashboards, or other integrations.
 
-> **Note:** RoomSense does not create entities for current temperature or humidity — these would duplicate your existing source sensors.
+> **Note:** RoomMind does not create entities for current temperature or humidity — these would duplicate your existing source sensors.
 
 ---
 
@@ -285,7 +285,7 @@ In on/off mode (or during MPC learning), some oscillation is normal (0.2 °C hys
 Check the outdoor gating thresholds in Settings → Control. By default, cooling is blocked below 16 °C outdoor temperature and heating above 22 °C.
 
 **"MPC active" but device isn't responding**
-Verify the climate entity is available in HA (Settings → Devices). RoomSense uses `climate.set_hvac_mode` and `climate.set_temperature` service calls.
+Verify the climate entity is available in HA (Settings → Devices). RoomMind uses `climate.set_hvac_mode` and `climate.set_temperature` service calls.
 
 **Thermal model seems wrong after changes**
 If you've made significant changes to a room (new insulation, different radiator, moved sensors), reset the thermal model for that room in Settings → Reset Thermal Data.

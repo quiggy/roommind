@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 from unittest.mock import MagicMock
 
-from custom_components.roomsense.schedule_utils import (
+from custom_components.roommind.schedule_utils import (
     get_active_schedule_entity,
     make_target_resolver,
     resolve_schedule_index,

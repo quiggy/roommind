@@ -1,9 +1,9 @@
 /**
- * RoomSense – Custom Panel entry point.
+ * RoomMind – Custom Panel entry point.
  *
  * This file is the Vite entry point that gets bundled into
- * roomsense-panel.js and served by Home Assistant.
+ * roommind-panel.js and served by Home Assistant.
  */
 import "./components/rs-area-card";
 import "./components/rs-room-detail";
-import "./roomsense-panel";
+import "./roommind-panel";

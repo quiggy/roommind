@@ -2,17 +2,17 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in RoomSense, please report it responsibly:
+If you discover a security vulnerability in RoomMind, please report it responsibly:
 
 1. **Do not** open a public GitHub issue
-2. Send an email to the maintainers or use [GitHub's private vulnerability reporting](https://github.com/snazzybean/roomsense/security/advisories/new)
+2. Send an email to the maintainers or use [GitHub's private vulnerability reporting](https://github.com/snazzybean/roommind/security/advisories/new)
 3. Include a description of the vulnerability and steps to reproduce it
 
 We will acknowledge your report within 48 hours and work on a fix as soon as possible.
 
 ## Scope
 
-RoomSense runs entirely locally within your Home Assistant instance. It does not connect to any external servers or cloud services. The main security considerations are:
+RoomMind runs entirely locally within your Home Assistant instance. It does not connect to any external servers or cloud services. The main security considerations are:
 
 - **WebSocket API** — All endpoints are authenticated through Home Assistant's built-in auth system
 - **Store data** — Room configurations and thermal data are stored in HA's `.storage` directory with standard HA file permissions

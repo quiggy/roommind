@@ -1,4 +1,4 @@
-"""Tests for RoomSense room store."""
+"""Tests for RoomMind room store."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.roomsense.const import DEFAULT_COMFORT_TEMP, DEFAULT_ECO_TEMP
+from custom_components.roommind.const import DEFAULT_COMFORT_TEMP, DEFAULT_ECO_TEMP
 
 
 @pytest.mark.asyncio

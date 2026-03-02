@@ -1,4 +1,4 @@
-"""MPC-based climate controller for RoomSense."""
+"""MPC-based climate controller for RoomMind."""
 
 from __future__ import annotations
 

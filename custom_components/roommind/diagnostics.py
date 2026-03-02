@@ -1,4 +1,4 @@
-"""Diagnostics support for RoomSense."""
+"""Diagnostics support for RoomMind."""
 
 from __future__ import annotations
 

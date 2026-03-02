@@ -1,4 +1,4 @@
-"""Room persistence layer for RoomSense."""
+"""Room persistence layer for RoomMind."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ STORAGE_VERSION = 1
 STORAGE_KEY = DOMAIN
 
 
-class RoomSenseStore:
-    """Manage room configuration storage for RoomSense."""
+class RoomMindStore:
+    """Manage room configuration storage for RoomMind."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialise the store."""

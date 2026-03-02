@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from custom_components.roomsense.thermal_model import (
+from custom_components.roommind.thermal_model import (
     RCModel,
     RoomModelManager,
     ThermalEKF,

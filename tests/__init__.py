@@ -1,1 +1,1 @@
-"""Tests for the RoomSense integration."""
+"""Tests for the RoomMind integration."""

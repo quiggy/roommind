@@ -1,4 +1,4 @@
-"""Repair flows for the RoomSense integration."""
+"""Repair flows for the RoomMind integration."""
 
 from __future__ import annotations
 

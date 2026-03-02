@@ -1,5 +1,5 @@
 /**
- * rs-settings – Global RoomSense settings page.
+ * rs-settings – Global RoomMind settings page.
  */
 import { LitElement, html, css, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -385,7 +385,7 @@ export class RsSettings extends LitElement {
   private async _loadSettings() {
     try {
       const result = await this.hass.callWS<{ settings: GlobalSettings }>({
-        type: "roomsense/settings/get",
+        type: "roommind/settings/get",
       });
       this._climateControlActive = result.settings.climate_control_active ?? true;
       this._learningDisabledRooms = result.settings.learning_disabled_rooms ?? [];
@@ -417,7 +417,7 @@ export class RsSettings extends LitElement {
       this._moldPreventionIntensity = result.settings.mold_prevention_intensity ?? "medium";
       this._moldPreventionNotify = result.settings.mold_prevention_notify_enabled ?? false;
     } catch (err) {
-      console.debug("[RoomSense] loadSettings:", err);
+      console.debug("[RoomMind] loadSettings:", err);
     } finally {
       this._loaded = true;
     }
@@ -1240,7 +1240,7 @@ export class RsSettings extends LitElement {
     try {
       fireSaveStatus(this,"saving");
       await this.hass.callWS({
-        type: "roomsense/thermal/reset",
+        type: "roommind/thermal/reset",
         area_id: areaId,
       });
       fireSaveStatus(this,"saved");
@@ -1254,7 +1254,7 @@ export class RsSettings extends LitElement {
     if (!confirm(localize("settings.reset_all_confirm", l))) return;
     try {
       fireSaveStatus(this,"saving");
-      await this.hass.callWS({ type: "roomsense/thermal/reset_all" });
+      await this.hass.callWS({ type: "roommind/thermal/reset_all" });
       fireSaveStatus(this,"saved");
     } catch {
       fireSaveStatus(this,"error");
@@ -1358,7 +1358,7 @@ export class RsSettings extends LitElement {
 
     try {
       await this.hass.callWS({
-        type: "roomsense/settings/save",
+        type: "roommind/settings/save",
         climate_control_active: this._climateControlActive,
         learning_disabled_rooms: this._learningDisabledRooms,
         outdoor_temp_sensor: this._outdoorTempSensor,

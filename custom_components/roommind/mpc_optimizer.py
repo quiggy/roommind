@@ -1,4 +1,4 @@
-"""MPC Optimizer using Dynamic Programming for RoomSense."""
+"""MPC Optimizer using Dynamic Programming for RoomMind."""
 
 from __future__ import annotations
 

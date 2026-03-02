@@ -1,5 +1,5 @@
 /**
- * Core type definitions for RoomSense frontend.
+ * Core type definitions for RoomMind frontend.
  */
 
 export type ClimateMode = "auto" | "heat_only" | "cool_only";

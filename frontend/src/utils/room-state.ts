@@ -1,5 +1,5 @@
 /**
- * Shared utilities for reading and formatting RoomSense room state.
+ * Shared utilities for reading and formatting RoomMind room state.
  */
 import type {
   HassDeviceRegistryEntry,

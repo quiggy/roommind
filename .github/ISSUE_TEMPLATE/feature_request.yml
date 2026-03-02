@@ -6,7 +6,7 @@ body:
     id: description
     attributes:
       label: Description
-      description: What would you like RoomSense to do?
+      description: What would you like RoomMind to do?
     validations:
       required: true
 

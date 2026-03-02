@@ -1,4 +1,4 @@
-"""WebSocket API for RoomSense room CRUD operations."""
+"""WebSocket API for RoomMind room CRUD operations."""
 
 from __future__ import annotations
 
@@ -25,11 +25,11 @@ from .thermal_model import RoomModelManager
 
 if TYPE_CHECKING:
     from homeassistant.components.websocket_api import ActiveConnection
-    from .coordinator import RoomSenseCoordinator
+    from .coordinator import RoomMindCoordinator
 
 
-def _get_coordinator(hass: HomeAssistant) -> RoomSenseCoordinator | None:
-    """Return the RoomSenseCoordinator from hass.data, or None."""
+def _get_coordinator(hass: HomeAssistant) -> RoomMindCoordinator | None:
+    """Return the RoomMindCoordinator from hass.data, or None."""
     return hass.data.get(DOMAIN, {}).get("coordinator")
 
 
@@ -97,7 +97,7 @@ def _compute_anyone_home(hass, settings):
 # ---------------------------------------------------------------------------
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "roomsense/rooms/list"}
+    {vol.Required("type"): "roommind/rooms/list"}
 )
 @websocket_api.async_response
 async def websocket_list_rooms(
@@ -170,7 +170,7 @@ async def websocket_list_rooms(
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "roomsense/rooms/save",
+        vol.Required("type"): "roommind/rooms/save",
         vol.Required("area_id"): str,
         vol.Optional("thermostats"): [str],
         vol.Optional("acs"): [str],
@@ -220,7 +220,7 @@ async def websocket_save_room(
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "roomsense/rooms/delete",
+        vol.Required("type"): "roommind/rooms/delete",
         vol.Required("area_id"): str,
     }
 )
@@ -256,7 +256,7 @@ async def websocket_delete_room(
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "roomsense/override/set",
+        vol.Required("type"): "roommind/override/set",
         vol.Required("area_id"): str,
         vol.Required("override_type"): vol.In(OVERRIDE_TYPES),
         vol.Optional("temperature"): vol.Coerce(float),
@@ -312,7 +312,7 @@ async def websocket_override_set(
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "roomsense/override/clear",
+        vol.Required("type"): "roommind/override/clear",
         vol.Required("area_id"): str,
     }
 )
@@ -349,7 +349,7 @@ async def websocket_override_clear(
 # ---------------------------------------------------------------------------
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "roomsense/settings/get"}
+    {vol.Required("type"): "roommind/settings/get"}
 )
 @websocket_api.async_response
 async def websocket_get_settings(
@@ -368,7 +368,7 @@ async def websocket_get_settings(
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "roomsense/settings/save",
+        vol.Required("type"): "roommind/settings/save",
         vol.Optional("outdoor_temp_sensor"): str,
         vol.Optional("outdoor_humidity_sensor"): str,
         vol.Optional("outdoor_cooling_min"): vol.Coerce(float),
@@ -497,7 +497,7 @@ async def _compute_target_forecast(
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "roomsense/analytics/get",
+        vol.Required("type"): "roommind/analytics/get",
         vol.Required("area_id"): str,
         vol.Optional("range"): vol.In(["12h", "24h", "2d", "7d", "14d", "30d", "90d"]),
         vol.Optional("start_ts"): vol.Coerce(float),
@@ -661,7 +661,7 @@ async def websocket_get_analytics(
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "roomsense/thermal/reset",
+        vol.Required("type"): "roommind/thermal/reset",
         vol.Required("area_id"): str,
     }
 )
@@ -696,7 +696,7 @@ async def websocket_thermal_reset(
 # ---------------------------------------------------------------------------
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "roomsense/thermal/reset_all"}
+    {vol.Required("type"): "roommind/thermal/reset_all"}
 )
 @websocket_api.async_response
 async def websocket_thermal_reset_all(
@@ -732,7 +732,7 @@ async def websocket_thermal_reset_all(
 
 @callback
 def async_register_websocket_commands(hass: HomeAssistant) -> None:
-    """Register all RoomSense WebSocket commands."""
+    """Register all RoomMind WebSocket commands."""
     websocket_api.async_register_command(hass, websocket_list_rooms)
     websocket_api.async_register_command(hass, websocket_save_room)
     websocket_api.async_register_command(hass, websocket_delete_room)

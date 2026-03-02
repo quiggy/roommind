@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import time
 
-from custom_components.roomsense.analytics_simulator import (
+from custom_components.roommind.analytics_simulator import (
     build_forecast_outdoor_series,
     build_forecast_solar_series,
     compute_observed_idle_rate,
     _simulate_bangbang,
     _simulate_mpc,
 )
-from custom_components.roomsense.thermal_model import RCModel, ThermalEKF
+from custom_components.roommind.thermal_model import RCModel, ThermalEKF
 
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from custom_components.roomsense.solar import (
+from custom_components.roommind.solar import (
     _clear_sky_ghi,
     _cloud_attenuation,
     _solar_elevation,

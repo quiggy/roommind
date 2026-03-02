@@ -697,7 +697,7 @@ export class RsRoomDetail extends LitElement {
 
     try {
       await this.hass.callWS({
-        type: "roomsense/rooms/save",
+        type: "roommind/rooms/save",
         area_id: this.area.area_id,
         thermostats: [...this._selectedThermostats],
         acs: [...this._selectedAcs],
@@ -954,7 +954,7 @@ export class RsRoomDetail extends LitElement {
     this._overrideError = "";
 
     const msg: Record<string, unknown> = {
-      type: "roomsense/override/set",
+      type: "roommind/override/set",
       area_id: this.config.area_id,
       override_type: pendingType,
       duration: hours,
@@ -987,7 +987,7 @@ export class RsRoomDetail extends LitElement {
 
     try {
       await this.hass.callWS({
-        type: "roomsense/override/clear",
+        type: "roommind/override/clear",
         area_id: this.config.area_id,
       });
       this._fireRoomUpdated();

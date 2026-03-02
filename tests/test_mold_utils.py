@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from custom_components.roomsense.mold_utils import (
+from custom_components.roommind.mold_utils import (
     calculate_mold_risk,
     dew_point,
     estimate_surface_temp,
@@ -197,7 +197,7 @@ def test_calculate_mold_risk_fallback_below_warning():
 
 def test_surface_rh_thresholds_exact():
     """Verify the risk function returns correct levels at exact thresholds."""
-    from custom_components.roomsense.mold_utils import _risk_from_surface_rh
+    from custom_components.roommind.mold_utils import _risk_from_surface_rh
 
     assert _risk_from_surface_rh(69.9) == "ok"
     assert _risk_from_surface_rh(70.0) == "warning"

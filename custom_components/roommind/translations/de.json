@@ -1,0 +1,26 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RoomMind",
+        "description": "RoomMind für die Raumklimasteuerung einrichten. Räume werden nach dem Setup im RoomMind-Panel konfiguriert."
+      }
+    },
+    "abort": {
+      "already_configured": "RoomMind ist bereits konfiguriert."
+    }
+  },
+  "issues": {
+    "restart_required": {
+      "title": "Neustart erforderlich",
+      "fix_flow": {
+        "step": {
+          "confirm_restart": {
+            "title": "Home Assistant neu starten?",
+            "description": "RoomMind {version} wurde installiert, aber Home Assistant läuft noch mit einer älteren Version. Neustart zum Abschließen des Updates."
+          }
+        }
+      }
+    }
+  }
+}

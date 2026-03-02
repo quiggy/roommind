@@ -1,4 +1,4 @@
-"""Presence detection utilities for RoomSense."""
+"""Presence detection utilities for RoomMind."""
 
 from __future__ import annotations
 

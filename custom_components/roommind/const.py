@@ -1,10 +1,10 @@
-"""Constants for the RoomSense integration."""
+"""Constants for the RoomMind integration."""
 
 import time
 
 from homeassistant.const import Platform
 
-DOMAIN = "roomsense"
+DOMAIN = "roommind"
 VERSION = "1.0.0"
 
 # Platforms

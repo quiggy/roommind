@@ -1,4 +1,4 @@
-"""DataUpdateCoordinator for RoomSense."""
+"""DataUpdateCoordinator for RoomMind."""
 
 from __future__ import annotations
 
@@ -30,8 +30,8 @@ def _get_area_name(hass: HomeAssistant, area_id: str) -> str:
     return area.name if area else area_id
 
 
-class RoomSenseCoordinator(DataUpdateCoordinator):
-    """Central coordinator for RoomSense room data and state."""
+class RoomMindCoordinator(DataUpdateCoordinator):
+    """Central coordinator for RoomMind room data and state."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
@@ -107,7 +107,7 @@ class RoomSenseCoordinator(DataUpdateCoordinator):
         # Initialize history store (once)
         if self._history_store is None:
             self._history_store = HistoryStore(
-                self.hass.config.path(".storage/roomsense_history")
+                self.hass.config.path(".storage/roommind_history")
             )
 
         room_states: dict[str, dict] = {}
@@ -290,7 +290,7 @@ class RoomSenseCoordinator(DataUpdateCoordinator):
                                     f"{current_humidity:.0f}% humidity, "
                                     f"estimated surface RH {mold_surface_rh:.0f}%"
                                 ),
-                                title="RoomSense: Mold Risk Warning",
+                                title="RoomMind: Mold Risk Warning",
                                 tag_suffix="risk",
                             )
                             self._mold_throttler.record_sent(f"detect_{area_id}")
@@ -320,7 +320,7 @@ class RoomSenseCoordinator(DataUpdateCoordinator):
                                         f"temperature raised by "
                                         f"{mold_prevention_temp_delta:.0f}°C"
                                     ),
-                                    title="RoomSense: Mold Prevention",
+                                    title="RoomMind: Mold Prevention",
                                     tag_suffix="prevention",
                                 )
                                 self._mold_throttler.record_sent(

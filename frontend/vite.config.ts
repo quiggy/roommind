@@ -5,11 +5,11 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, "src/main.ts"),
-      name: "RoomSensePanel",
+      name: "RoomMindPanel",
       formats: ["iife"],
-      fileName: () => "roomsense-panel.js",
+      fileName: () => "roommind-panel.js",
     },
-    outDir: "../custom_components/roomsense/frontend",
+    outDir: "../custom_components/roommind/frontend",
     emptyOutDir: false,
     rollupOptions: {
       // No external dependencies – everything is bundled

@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from custom_components.roomsense.history_store import HistoryStore
+from custom_components.roommind.history_store import HistoryStore
 
 
 @pytest.fixture

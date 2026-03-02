@@ -1,4 +1,4 @@
-# Contributing to RoomSense
+# Contributing to RoomMind
 
 Thanks for your interest in contributing! Here's how to get started.
 
@@ -27,7 +27,7 @@ npm run dev     # Dev server with hot reload
 npm run build   # Production build (TypeScript check + Vite bundle)
 ```
 
-The production build outputs to `custom_components/roomsense/frontend/roomsense-panel.js`.
+The production build outputs to `custom_components/roommind/frontend/roommind-panel.js`.
 
 ## Running Tests
 
@@ -83,4 +83,4 @@ chore: update dependencies
 
 ## Reporting Issues
 
-Use [GitHub Issues](https://github.com/snazzybean/roomsense/issues) with the provided templates for bug reports and feature requests.
+Use [GitHub Issues](https://github.com/snazzybean/roommind/issues) with the provided templates for bug reports and feature requests.

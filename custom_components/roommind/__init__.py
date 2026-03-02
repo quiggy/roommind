@@ -1,4 +1,4 @@
-"""RoomSense – Holistic room climate management for Home Assistant."""
+"""RoomMind – Holistic room climate management for Home Assistant."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ from homeassistant.helpers import config_validation as cv, issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PLATFORMS, VERSION
-from .coordinator import RoomSenseCoordinator
-from .store import RoomSenseStore
+from .coordinator import RoomMindCoordinator
+from .store import RoomMindStore
 from .websocket_api import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,22 +27,23 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the RoomSense integration (YAML, runs once)."""
+    """Set up the RoomMind integration (YAML, runs once)."""
     hass.data.setdefault(DOMAIN, {})
     async_register_websocket_commands(hass)
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up RoomSense from a config entry."""
+    """Set up RoomMind from a config entry."""
     # Ensure the store is created and loaded (once across all entries)
     store = hass.data[DOMAIN].get("store")
     if not store:
-        store = RoomSenseStore(hass)
+        await _async_migrate_storage(hass)
+        store = RoomMindStore(hass)
         await store.async_load()
         hass.data[DOMAIN]["store"] = store
 
-    coordinator = RoomSenseCoordinator(hass, entry)
+    coordinator = RoomMindCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -56,8 +57,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def _async_migrate_storage(hass: HomeAssistant) -> None:
+    """Migrate storage file from old 'roomsense' name if present."""
+    old_path = Path(hass.config.path(".storage")) / "roomsense"
+    new_path = Path(hass.config.path(".storage")) / "roommind"
+    if old_path.exists() and not new_path.exists():
+        old_path.rename(new_path)
+        _LOGGER.info("Migrated storage from 'roomsense' to 'roommind'")
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a RoomSense config entry."""
+    """Unload a RoomMind config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
@@ -65,7 +75,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Remove panel if no entries remain
     if not hass.data[DOMAIN]:
-        async_remove_panel(hass, "roomsense")
+        async_remove_panel(hass, "roommind")
 
     return unload_ok
 
@@ -90,7 +100,7 @@ def _check_version_mismatch(hass: HomeAssistant) -> None:
             translation_placeholders={"version": disk_version},
         )
         _LOGGER.warning(
-            "RoomSense on disk is %s but running %s – restart required",
+            "RoomMind on disk is %s but running %s – restart required",
             disk_version,
             VERSION,
         )
@@ -99,43 +109,43 @@ def _check_version_mismatch(hass: HomeAssistant) -> None:
 
 
 async def _async_register_panel(hass: HomeAssistant) -> None:
-    """Register the RoomSense custom panel in the sidebar."""
+    """Register the RoomMind custom panel in the sidebar."""
     if hass.data[DOMAIN].get("panel_registered"):
         return
 
-    panel_js = Path(__file__).parent / "frontend" / "roomsense-panel.js"
+    panel_js = Path(__file__).parent / "frontend" / "roommind-panel.js"
     if not panel_js.exists():
         _LOGGER.warning(
-            "RoomSense panel JS not found at %s – sidebar panel not registered",
+            "RoomMind panel JS not found at %s – sidebar panel not registered",
             panel_js,
         )
         return
 
     try:
         await hass.http.async_register_static_paths(
-            [StaticPathConfig("/roomsense/roomsense-panel.js", str(panel_js), False)]
+            [StaticPathConfig("/roommind/roommind-panel.js", str(panel_js), False)]
         )
     except RuntimeError:
-        _LOGGER.debug("RoomSense static path already registered")
+        _LOGGER.debug("RoomMind static path already registered")
 
     try:
         async_register_built_in_panel(
             hass,
             component_name="custom",
-            sidebar_title="RoomSense",
+            sidebar_title="RoomMind",
             sidebar_icon="mdi:home-thermometer",
-            frontend_url_path="roomsense",
+            frontend_url_path="roommind",
             config={
                 "_panel_custom": {
-                    "name": "roomsense-panel",
+                    "name": "roommind-panel",
                     "embed_iframe": False,
                     "trust_external": False,
-                    "js_url": "/roomsense/roomsense-panel.js",
+                    "js_url": "/roommind/roommind-panel.js",
                 }
             },
         )
     except ValueError:
-        _LOGGER.debug("RoomSense panel already registered")
+        _LOGGER.debug("RoomMind panel already registered")
 
     hass.data[DOMAIN]["panel_registered"] = True
-    _LOGGER.info("RoomSense panel registered in sidebar")
+    _LOGGER.info("RoomMind panel registered in sidebar")

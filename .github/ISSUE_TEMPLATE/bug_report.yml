@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in RoomSense
+description: Report a bug in RoomMind
 labels: ["bug"]
 body:
   - type: markdown
@@ -10,8 +10,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: RoomSense version
-      description: Found in Settings → Devices & Services → RoomSense
+      label: RoomMind version
+      description: Found in Settings → Devices & Services → RoomMind
       placeholder: "1.0.0"
     validations:
       required: true
@@ -60,5 +60,5 @@ body:
     attributes:
       label: Relevant log output
       description: |
-        Paste any relevant logs from Settings → System → Logs (filter for "roomsense").
+        Paste any relevant logs from Settings → System → Logs (filter for "roommind").
       render: text

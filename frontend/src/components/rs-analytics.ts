@@ -931,7 +931,7 @@ export class RsAnalytics extends LitElement {
     const name = (roomConfig?.display_name || area?.name || this._selectedRoom).replace(/\s+/g, "_").toLowerCase();
     const from = new Date(this._rangeStart).toISOString().slice(0, 10);
     const to = new Date(this._rangeEnd).toISOString().slice(0, 10);
-    this._downloadString(csv, `roomsense_${name}_${from}_${to}.csv`, "text/csv");
+    this._downloadString(csv, `roommind_${name}_${from}_${to}.csv`, "text/csv");
     this._openDropdown = null;
   }
 
@@ -941,7 +941,7 @@ export class RsAnalytics extends LitElement {
     const area = this.hass?.areas?.[this._selectedRoom];
     const roomConfig = this.rooms[this._selectedRoom];
     const name = (roomConfig?.display_name || area?.name || this._selectedRoom).replace(/\s+/g, "_").toLowerCase();
-    this._downloadString(json, `roomsense_diagnostics_${name}.json`, "application/json");
+    this._downloadString(json, `roommind_diagnostics_${name}.json`, "application/json");
     this._openDropdown = null;
   }
 
@@ -968,7 +968,7 @@ export class RsAnalytics extends LitElement {
     try {
       ok = document.execCommand("copy");
     } catch (err) {
-      console.debug("[RoomSense] clipboard fallback:", err);
+      console.debug("[RoomMind] clipboard fallback:", err);
     }
     document.body.removeChild(ta);
     return ok;
@@ -1000,7 +1000,7 @@ export class RsAnalytics extends LitElement {
 
   private _buildWsParams(): Record<string, unknown> {
     return {
-      type: "roomsense/analytics/get",
+      type: "roommind/analytics/get",
       area_id: this._selectedRoom,
       start_ts: this._rangeStart / 1000,
       end_ts: this._rangeEnd / 1000,
@@ -1017,7 +1017,7 @@ export class RsAnalytics extends LitElement {
       const result = await this.hass.callWS<AnalyticsData>(this._buildWsParams());
       this._data = result;
     } catch (err) {
-      console.debug("[RoomSense] fetchData:", err);
+      console.debug("[RoomMind] fetchData:", err);
       this._data = null;
     } finally {
       this._loading = false;
@@ -1031,7 +1031,7 @@ export class RsAnalytics extends LitElement {
       this._data = result;
       this._chartAnchor = Date.now();
     } catch (err) {
-      console.debug("[RoomSense] silentRefresh:", err);
+      console.debug("[RoomMind] silentRefresh:", err);
     }
   }
 

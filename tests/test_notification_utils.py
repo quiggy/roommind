@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.roomsense.notification_utils import (
+from custom_components.roommind.notification_utils import (
     NotificationThrottler,
     dismiss_mold_notification,
     async_send_mold_notification,
@@ -70,7 +70,7 @@ async def test_send_notification_with_targets():
 
     await async_send_mold_notification(
         hass, "living_room", "Wohnzimmer", targets,
-        message="Test mold alert", title="RoomSense: Test",
+        message="Test mold alert", title="RoomMind: Test",
     )
 
     assert hass.services.async_call.call_count == 2
@@ -78,7 +78,7 @@ async def test_send_notification_with_targets():
         assert call[0][0] == "notify"
         assert call[0][1] == "send_message"
         assert call[0][2]["message"] == "Test mold alert"
-        assert call[0][2]["data"]["tag"] == "roomsense_mold_living_room_risk"
+        assert call[0][2]["data"]["tag"] == "roommind_mold_living_room_risk"
 
 
 @pytest.mark.asyncio
@@ -96,7 +96,7 @@ async def test_send_notification_home_only_skips_away():
     ]
 
     with patch(
-        "custom_components.roomsense.notification_utils.async_create"
+        "custom_components.roommind.notification_utils.async_create"
     ) as mock_persistent:
         await async_send_mold_notification(
             hass, "living_room", "Wohnzimmer", targets,
@@ -137,18 +137,18 @@ async def test_send_notification_no_targets_persistent():
     hass = MagicMock()
 
     with patch(
-        "custom_components.roomsense.notification_utils.async_create"
+        "custom_components.roommind.notification_utils.async_create"
     ) as mock_create:
         await async_send_mold_notification(
             hass, "living_room", "Wohnzimmer", [],
-            message="Test mold alert", title="RoomSense: Test",
+            message="Test mold alert", title="RoomMind: Test",
         )
 
     mock_create.assert_called_once_with(
         hass,
         "Test mold alert",
-        title="RoomSense: Test",
-        notification_id="roomsense_mold_living_room_risk",
+        title="RoomMind: Test",
+        notification_id="roommind_mold_living_room_risk",
     )
 
 
@@ -187,12 +187,12 @@ async def test_send_notification_custom_tag_suffix():
 
     await async_send_mold_notification(
         hass, "bedroom", "Schlafzimmer", targets,
-        message="Prevention active", title="RoomSense",
+        message="Prevention active", title="RoomMind",
         tag_suffix="prevention",
     )
 
     call_data = hass.services.async_call.call_args[0][2]["data"]
-    assert call_data["tag"] == "roomsense_mold_bedroom_prevention"
+    assert call_data["tag"] == "roommind_mold_bedroom_prevention"
 
 
 # --- dismiss_mold_notification ---
@@ -202,11 +202,11 @@ def test_dismiss_notification():
     hass = MagicMock()
 
     with patch(
-        "custom_components.roomsense.notification_utils.async_dismiss"
+        "custom_components.roommind.notification_utils.async_dismiss"
     ) as mock_dismiss:
         dismiss_mold_notification(hass, "living_room", "risk")
 
-    mock_dismiss.assert_called_once_with(hass, "roomsense_mold_living_room_risk")
+    mock_dismiss.assert_called_once_with(hass, "roommind_mold_living_room_risk")
 
 
 def test_dismiss_notification_prevention_suffix():
@@ -214,8 +214,8 @@ def test_dismiss_notification_prevention_suffix():
     hass = MagicMock()
 
     with patch(
-        "custom_components.roomsense.notification_utils.async_dismiss"
+        "custom_components.roommind.notification_utils.async_dismiss"
     ) as mock_dismiss:
         dismiss_mold_notification(hass, "bedroom", "prevention")
 
-    mock_dismiss.assert_called_once_with(hass, "roomsense_mold_bedroom_prevention")
+    mock_dismiss.assert_called_once_with(hass, "roommind_mold_bedroom_prevention")

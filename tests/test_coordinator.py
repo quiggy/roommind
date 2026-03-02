@@ -1,4 +1,4 @@
-"""Tests for the RoomSense coordinator."""
+"""Tests for the RoomMind coordinator."""
 
 from __future__ import annotations
 
@@ -150,16 +150,16 @@ def make_mock_states_get(
 
 
 def _create_coordinator(hass, mock_config_entry):
-    """Create a RoomSenseCoordinator with frame.report_usage patched out."""
-    from custom_components.roomsense.coordinator import RoomSenseCoordinator
+    """Create a RoomMindCoordinator with frame.report_usage patched out."""
+    from custom_components.roommind.coordinator import RoomMindCoordinator
 
     with patch("homeassistant.helpers.frame.report_usage"):
-        coordinator = RoomSenseCoordinator(hass, mock_config_entry)
+        coordinator = RoomMindCoordinator(hass, mock_config_entry)
     return coordinator
 
 
-class TestRoomSenseCoordinator:
-    """Tests for RoomSenseCoordinator."""
+class TestRoomMindCoordinator:
+    """Tests for RoomMindCoordinator."""
 
     @pytest.mark.asyncio
     async def test_coordinator_initializes(self, hass, mock_config_entry):
@@ -175,7 +175,7 @@ class TestRoomSenseCoordinator:
         """Test that update reads sensor, uses comfort_temp, and applies heating."""
         # Set up store mock
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
 
@@ -215,7 +215,7 @@ class TestRoomSenseCoordinator:
     async def test_update_at_comfort_temp_goes_idle(self, hass, mock_config_entry):
         """Test that rooms at comfort_temp go idle (no heating/cooling needed)."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
@@ -233,7 +233,7 @@ class TestRoomSenseCoordinator:
     ):
         """Test that an unavailable sensor results in idle mode."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="unavailable"))
         hass.services.async_call = AsyncMock()
@@ -252,7 +252,7 @@ class TestRoomSenseCoordinator:
     ):
         """Test that a missing sensor entity results in idle mode."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp=None))
         hass.services.async_call = AsyncMock()
@@ -269,7 +269,7 @@ class TestRoomSenseCoordinator:
     async def test_update_empty_store_returns_empty(self, hass, mock_config_entry):
         """Test that an empty store returns an empty rooms dict."""
         store = _make_store_mock({})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.services.async_call = AsyncMock()
 
@@ -284,7 +284,7 @@ class TestRoomSenseCoordinator:
     ):
         """Test that a climate service call failure is handled gracefully."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
 
@@ -303,7 +303,7 @@ class TestRoomSenseCoordinator:
     async def test_update_schedule_off_uses_eco_temp(self, hass, mock_config_entry):
         """Test that schedule 'off' uses eco_temp as target."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(schedule_state="off"))
         hass.services.async_call = AsyncMock()
@@ -321,7 +321,7 @@ class TestRoomSenseCoordinator:
     async def test_update_schedule_on_with_block_temp(self, hass, mock_config_entry):
         """Test that schedule 'on' with temperature attribute uses block temp."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(schedule_attrs={"temperature": 23.0})
@@ -350,7 +350,7 @@ class TestRoomSenseCoordinator:
             "eco_temp": 17.0,
         }
         store = _make_store_mock({"bedroom_abc12345": room_no_schedule})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         def mock_states_get(entity_id):
             if entity_id == "sensor.bedroom_temp":
@@ -400,17 +400,17 @@ class TestRoomSenseCoordinator:
         assert len(entities) == 2
 
         # Verify entity types
-        from custom_components.roomsense.sensor import (
-            RoomSenseTargetTemperatureSensor,
-            RoomSenseModeSensor,
+        from custom_components.roommind.sensor import (
+            RoomMindTargetTemperatureSensor,
+            RoomMindModeSensor,
         )
 
-        assert isinstance(entities[0], RoomSenseTargetTemperatureSensor)
-        assert isinstance(entities[1], RoomSenseModeSensor)
+        assert isinstance(entities[0], RoomMindTargetTemperatureSensor)
+        assert isinstance(entities[1], RoomMindModeSensor)
 
         # Verify unique IDs
-        assert entities[0]._attr_unique_id == "roomsense_bedroom_abc12345_target_temp"
-        assert entities[1]._attr_unique_id == "roomsense_bedroom_abc12345_mode"
+        assert entities[0]._attr_unique_id == "roommind_bedroom_abc12345_target_temp"
+        assert entities[1]._attr_unique_id == "roommind_bedroom_abc12345_mode"
 
         coordinator.async_request_refresh.assert_called_once()
 
@@ -456,16 +456,16 @@ class TestRoomSenseCoordinator:
 
         # Create mock entity registry entries for this room
         entity1 = MagicMock()
-        entity1.unique_id = f"roomsense_{room_id}_target_temp"
+        entity1.unique_id = f"roommind_{room_id}_target_temp"
         entity1.entity_id = f"sensor.{room_id}_target_temp"
 
         entity2 = MagicMock()
-        entity2.unique_id = f"roomsense_{room_id}_mode"
+        entity2.unique_id = f"roommind_{room_id}_mode"
         entity2.entity_id = f"sensor.{room_id}_mode"
 
         # Also include an entity for a different room (should NOT be removed)
         other_entity = MagicMock()
-        other_entity.unique_id = "roomsense_other_room_99999_target_temp"
+        other_entity.unique_id = "roommind_other_room_99999_target_temp"
         other_entity.entity_id = "sensor.other_room_target_temp"
 
         mock_registry = MagicMock()
@@ -501,7 +501,7 @@ class TestRoomSenseCoordinator:
             "override_type": "boost",
         }
         store = _make_store_mock({"living_room_abc12345": room_with_override})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(schedule_state="off"))
         hass.services.async_call = AsyncMock()
@@ -525,7 +525,7 @@ class TestRoomSenseCoordinator:
         }
         store = _make_store_mock({"living_room_abc12345": room_with_expired})
         store.async_update_room = AsyncMock()
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
@@ -661,7 +661,7 @@ class TestRoomSenseCoordinator:
             "schedule_selector_entity": "input_boolean.schedule_toggle",
         }
         store = _make_store_mock({"living_room_abc12345": room})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             selector_state="on",
@@ -685,7 +685,7 @@ class TestRoomSenseCoordinator:
     ):
         """Verify active_schedule_index is in the room state result."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
         hass.services.async_call = AsyncMock()
@@ -705,7 +705,7 @@ class TestRoomSenseCoordinator:
             "window_sensors": ["binary_sensor.living_room_window"],
         }
         store = _make_store_mock({"living_room_abc12345": room_with_window})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             window_sensors={"binary_sensor.living_room_window": "on"},
@@ -740,7 +740,7 @@ class TestRoomSenseCoordinator:
             "window_sensors": ["binary_sensor.living_room_window"],
         }
         store = _make_store_mock({"living_room_abc12345": room_with_window})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             window_sensors={"binary_sensor.living_room_window": "off"},
@@ -764,7 +764,7 @@ class TestRoomSenseCoordinator:
             "window_sensors": ["binary_sensor.living_room_window"],
         }
         store = _make_store_mock({"living_room_abc12345": room_with_window})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             window_sensors={"binary_sensor.living_room_window": "unavailable"},
@@ -786,7 +786,7 @@ class TestRoomSenseCoordinator:
             "window_sensors": [],
         }
         store = _make_store_mock({"living_room_abc12345": room_with_no_windows})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
         hass.services.async_call = AsyncMock()
@@ -806,7 +806,7 @@ class TestRoomSenseCoordinator:
             "window_sensors": ["binary_sensor.window1", "binary_sensor.window2"],
         }
         store = _make_store_mock({"living_room_abc12345": room_with_windows})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             window_sensors={
@@ -832,7 +832,7 @@ class TestRoomSenseCoordinator:
             "window_open_delay": 120,
         }
         store = _make_store_mock({"living_room_abc12345": room_with_delay})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             window_sensors={"binary_sensor.living_room_window": "on"},
@@ -855,7 +855,7 @@ class TestRoomSenseCoordinator:
             "window_open_delay": 120,
         }
         store = _make_store_mock({"living_room_abc12345": room_with_delay})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             window_sensors={"binary_sensor.living_room_window": "on"},
@@ -880,7 +880,7 @@ class TestRoomSenseCoordinator:
             "window_close_delay": 300,
         }
         store = _make_store_mock({"living_room_abc12345": room_with_delay})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             window_sensors={"binary_sensor.living_room_window": "off"},
@@ -905,7 +905,7 @@ class TestRoomSenseCoordinator:
             "window_close_delay": 300,
         }
         store = _make_store_mock({"living_room_abc12345": room_with_delay})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             window_sensors={"binary_sensor.living_room_window": "off"},
@@ -932,7 +932,7 @@ class TestRoomSenseCoordinator:
             "window_close_delay": 0,
         }
         store = _make_store_mock({"living_room_abc12345": room_zero_delay})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             window_sensors={"binary_sensor.living_room_window": "on"},
@@ -955,7 +955,7 @@ class TestRoomSenseCoordinator:
             "window_open_delay": 120,
         }
         store = _make_store_mock({"living_room_abc12345": room_with_delay})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         # First call: window is open — delay timer starts but not reached
         mock_states = {}
@@ -1030,7 +1030,7 @@ class TestVacationMode:
             "vacation_temp": 15.0,
             "vacation_until": time.time() + 86400,
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
         hass.services.async_call = AsyncMock()
@@ -1055,7 +1055,7 @@ class TestVacationMode:
             "vacation_temp": 15.0,
             "vacation_until": time.time() + 86400,
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
         hass.services.async_call = AsyncMock()
@@ -1075,7 +1075,7 @@ class TestVacationMode:
             "vacation_until": time.time() - 10,
         }
         store.async_save_settings = AsyncMock()
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.async_create_task = MagicMock(side_effect=lambda coro: coro.close())
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
@@ -1128,7 +1128,7 @@ class TestPresenceDetection:
             "presence_enabled": True,
             "presence_persons": ["person.kevin", "person.anna"],
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=_presence_states_get())
         hass.services.async_call = AsyncMock()
 
@@ -1147,7 +1147,7 @@ class TestPresenceDetection:
             "presence_enabled": True,
             "presence_persons": ["person.kevin", "person.anna"],
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(
             side_effect=_presence_states_get("person.kevin")
         )
@@ -1174,7 +1174,7 @@ class TestPresenceDetection:
             "presence_enabled": True,
             "presence_persons": ["person.kevin"],
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=_presence_states_get())
         hass.services.async_call = AsyncMock()
 
@@ -1194,7 +1194,7 @@ class TestPresenceDetection:
             "vacation_temp": 15.0,
             "vacation_until": time.time() + 86400,
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=_presence_states_get())
         hass.services.async_call = AsyncMock()
 
@@ -1212,7 +1212,7 @@ class TestPresenceDetection:
             "presence_enabled": True,
             "presence_persons": ["person.kevin"],
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             person_states={"person.kevin": "unavailable"},
@@ -1234,7 +1234,7 @@ class TestPresenceDetection:
             "presence_enabled": True,
             "presence_persons": ["person.nonexistent"],
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         # person.nonexistent not in any dict -> returns None (fail-safe: treated as home)
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
@@ -1258,7 +1258,7 @@ class TestPresenceDetection:
             "presence_enabled": True,
             "presence_persons": ["person.kevin", "person.anna"],
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         # kevin is home, anna is away
         hass.states.get = MagicMock(
             side_effect=_presence_states_get("person.kevin")
@@ -1284,7 +1284,7 @@ class TestPresenceDetection:
             "presence_enabled": True,
             "presence_persons": ["person.kevin", "person.anna"],
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         # anna is home, kevin is away
         hass.states.get = MagicMock(
             side_effect=_presence_states_get("person.anna")
@@ -1310,7 +1310,7 @@ class TestPresenceDetection:
             "presence_enabled": True,
             "presence_persons": ["person.kevin", "person.anna"],
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         # only anna is home
         hass.states.get = MagicMock(
             side_effect=_presence_states_get("person.anna")
@@ -1332,7 +1332,7 @@ class TestPresenceDetection:
             "presence_enabled": False,
             "presence_persons": ["person.kevin"],
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=_presence_states_get())
         hass.services.async_call = AsyncMock()
 
@@ -1361,14 +1361,14 @@ class TestCoordinatorMPCIntegration:
         pre-training the model, mocking low prediction_std so MPC is selected,
         and confirming the coordinator produces the expected heating mode + state.
         """
-        from custom_components.roomsense.thermal_model import RoomModelManager
+        from custom_components.roommind.thermal_model import RoomModelManager
 
         room = {
             **SAMPLE_ROOM,
             "area_id": "mpc_room",
         }
         store = _make_store_mock({"mpc_room": room})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(temp="17.0", humidity="50.0")
@@ -1410,7 +1410,7 @@ class TestCoordinatorMPCIntegration:
             "area_id": "bangbang_room",
         }
         store = _make_store_mock({"bangbang_room": room})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(temp="16.0", humidity="50.0")
@@ -1445,7 +1445,7 @@ class TestCoordinatorMPCIntegration:
         }
         store = _make_store_mock({"forecast_room": room})
         store.get_settings.return_value = {"weather_entity": "weather.home"}
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(temp="17.0", humidity="50.0")
@@ -1490,7 +1490,7 @@ class TestCoordinatorMPCIntegration:
             "area_id": "learning_room",
         }
         store = _make_store_mock({"learning_room": room})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(temp="18.5", humidity="50.0")
@@ -1521,7 +1521,7 @@ class TestCoordinatorMPCIntegration:
         }
         store = _make_store_mock({"idle_room": room})
         store.get_settings = MagicMock(return_value={"outdoor_temp_sensor": "sensor.outdoor_temp"})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
 
         hass.states.get = MagicMock(side_effect=make_mock_states_get(
             temp="21.0", humidity="50.0", outdoor_temp="20.0",
@@ -1556,7 +1556,7 @@ class TestValveProtection:
         """No cycling occurs without explicit enable."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
         store.get_settings.return_value = {}
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1577,7 +1577,7 @@ class TestValveProtection:
             "valve_protection_interval_days": 7,
         }
         store.async_save_settings = AsyncMock()
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1607,7 +1607,7 @@ class TestValveProtection:
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
         store.get_settings.return_value = {"valve_protection_enabled": True}
         store.async_save_settings = AsyncMock()
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1645,7 +1645,7 @@ class TestValveProtection:
             "valve_protection_interval_days": 7,
             "valve_last_actuation": {"climate.living_room": recent_ts},
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1661,7 +1661,7 @@ class TestValveProtection:
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
         store.get_settings.return_value = {"valve_protection_enabled": True}
         store.async_save_settings = AsyncMock()
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1696,7 +1696,7 @@ class TestValveProtection:
             "valve_protection_interval_days": 7,
         }
         store.async_save_settings = AsyncMock()
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1720,7 +1720,7 @@ class TestValveProtection:
             "valve_protection_interval_days": 7,
         }
         store.async_save_settings = AsyncMock()
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1740,7 +1740,7 @@ class TestValveProtection:
         """Normal heating updates valve actuation timestamps."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
         store.get_settings.return_value = {}
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="18.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1762,7 +1762,7 @@ class TestValveProtection:
             "valve_protection_interval_days": 3,
         }
         store.async_save_settings = AsyncMock()
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1787,7 +1787,7 @@ class TestValveProtection:
             },
         }
         store.async_save_settings = AsyncMock()
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get(temp="21.0"))
         hass.services.async_call = AsyncMock()
 
@@ -1806,7 +1806,7 @@ class TestMoldRiskDetection:
     async def test_mold_detection_disabled_by_default(self, hass, mock_config_entry):
         """When mold detection is not enabled, mold_risk_level should be 'ok'."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(humidity="80.0"),
         )
@@ -1829,7 +1829,7 @@ class TestMoldRiskDetection:
             "mold_detection_enabled": True,
             "outdoor_temp_sensor": "sensor.outdoor_temp",
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         # 18°C, 75% RH, 0°C outside → should be critical
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(
@@ -1857,7 +1857,7 @@ class TestMoldRiskDetection:
             "mold_prevention_intensity": "medium",
             "outdoor_temp_sensor": "sensor.outdoor_temp",
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         # High mold risk conditions
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(
@@ -1886,7 +1886,7 @@ class TestMoldRiskDetection:
             "mold_prevention_intensity": "light",
             "outdoor_temp_sensor": "sensor.outdoor_temp",
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(
                 humidity="75.0", outdoor_temp="0.0",
@@ -1912,7 +1912,7 @@ class TestMoldRiskDetection:
             "mold_detection_enabled": True,
             "outdoor_temp_sensor": "sensor.outdoor_temp",
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(
                 humidity=None, outdoor_temp="0.0",
@@ -1933,7 +1933,7 @@ class TestMoldRiskDetection:
     ):
         """Mold risk fields should always be present in room state."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(side_effect=make_mock_states_get())
         hass.services.async_call = AsyncMock()
 
@@ -1957,7 +1957,7 @@ class TestMoldRiskDetection:
             "mold_prevention_intensity": "strong",
             "outdoor_temp_sensor": "sensor.outdoor_temp",
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(
                 humidity="75.0", outdoor_temp="0.0",
@@ -1987,7 +1987,7 @@ class TestMoldRiskDetection:
             ],
             "outdoor_temp_sensor": "sensor.outdoor_temp",
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(
                 humidity="75.0", outdoor_temp="0.0",
@@ -2024,7 +2024,7 @@ class TestMoldRiskDetection:
             ],
             "outdoor_temp_sensor": "sensor.outdoor_temp",
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(
                 humidity="75.0", outdoor_temp="0.0",
@@ -2034,7 +2034,7 @@ class TestMoldRiskDetection:
 
         coordinator = _create_coordinator(hass, mock_config_entry)
         with patch(
-            "custom_components.roomsense.coordinator._get_area_name",
+            "custom_components.roommind.coordinator._get_area_name",
             return_value="Living Room",
         ):
             await coordinator._async_update_data()
@@ -2056,7 +2056,7 @@ class TestMoldRiskDetection:
             "mold_prevention_intensity": "medium",
             "outdoor_temp_sensor": "sensor.outdoor_temp",
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         hass.services.async_call = AsyncMock()
 
         coordinator = _create_coordinator(hass, mock_config_entry)
@@ -2093,7 +2093,7 @@ class TestMoldRiskDetection:
             "mold_prevention_intensity": "medium",
             "outdoor_temp_sensor": "sensor.outdoor_temp",
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         # Conditions that produce WARNING (surface RH 70-80%) but room humidity below threshold
         # 20°C, 60% RH, 5°C outside → surface ~16°C, surface RH ~76% (WARNING)
         hass.states.get = MagicMock(
@@ -2121,7 +2121,7 @@ class TestMoldRiskDetection:
             "mold_detection_enabled": True,
             # No outdoor_temp_sensor
         }
-        hass.data = {"roomsense": {"store": store}}
+        hass.data = {"roommind": {"store": store}}
         # 70% room humidity → fallback = 80% surface RH → critical
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(humidity="70.0"),

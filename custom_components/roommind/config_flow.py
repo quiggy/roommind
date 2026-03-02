@@ -1,4 +1,4 @@
-"""Config flow for RoomSense integration."""
+"""Config flow for RoomMind integration."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from homeassistant.config_entries import ConfigFlow
 from .const import DOMAIN
 
 
-class RoomSenseConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle the config flow for RoomSense."""
+class RoomMindConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle the config flow for RoomMind."""
 
     VERSION = 1
 
@@ -18,6 +18,6 @@ class RoomSenseConfigFlow(ConfigFlow, domain=DOMAIN):
             # Prevent multiple instances
             await self.async_set_unique_id(DOMAIN)
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(title="RoomSense", data={})
+            return self.async_create_entry(title="RoomMind", data={})
 
         return self.async_show_form(step_id="user")

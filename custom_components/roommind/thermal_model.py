@@ -1,4 +1,4 @@
-"""First-order RC thermal model with EKF parameter learning for RoomSense.
+"""First-order RC thermal model with EKF parameter learning for RoomMind.
 
 Physics: dT/dt = (Q_active - U * (T_room - T_outdoor)) / C
 

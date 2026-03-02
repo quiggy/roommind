@@ -1,4 +1,4 @@
-"""CSV-based rolling history store for RoomSense analytics."""
+"""CSV-based rolling history store for RoomMind analytics."""
 
 from __future__ import annotations
 

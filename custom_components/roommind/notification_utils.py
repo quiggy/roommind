@@ -1,4 +1,4 @@
-"""Notification utilities for RoomSense.
+"""Notification utilities for RoomMind.
 
 Provides throttled notification sending to HA notify entities with
 per-device home/away filtering and persistent-notification fallback.
@@ -17,7 +17,7 @@ from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
-NOTIF_PREFIX = "roomsense_mold_"
+NOTIF_PREFIX = "roommind_mold_"
 
 
 class NotificationThrottler:
@@ -111,7 +111,7 @@ async def async_send_mold_notification(
                     "title": title,
                     "data": {
                         "tag": tag,
-                        "group": "roomsense",
+                        "group": "roommind",
                     },
                 },
             )

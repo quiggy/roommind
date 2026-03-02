@@ -1,4 +1,4 @@
-"""Sensor platform for RoomSense."""
+"""Sensor platform for RoomMind."""
 
 from __future__ import annotations
 
@@ -10,16 +10,16 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import RoomSenseCoordinator
+from .coordinator import RoomMindCoordinator
 
 
 def _create_room_entities(
-    coordinator: RoomSenseCoordinator, area_id: str
+    coordinator: RoomMindCoordinator, area_id: str
 ) -> list[SensorEntity]:
     """Create the standard set of sensor entities for a room."""
     return [
-        RoomSenseTargetTemperatureSensor(coordinator, area_id),
-        RoomSenseModeSensor(coordinator, area_id),
+        RoomMindTargetTemperatureSensor(coordinator, area_id),
+        RoomMindModeSensor(coordinator, area_id),
     ]
 
 
@@ -28,8 +28,8 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up RoomSense sensor entities from a config entry."""
-    coordinator: RoomSenseCoordinator = hass.data[DOMAIN][entry.entry_id]
+    """Set up RoomMind sensor entities from a config entry."""
+    coordinator: RoomMindCoordinator = hass.data[DOMAIN][entry.entry_id]
     store = hass.data[DOMAIN]["store"]
 
     # Store the callback on the coordinator so dynamic entity creation works
@@ -44,15 +44,15 @@ async def async_setup_entry(
         async_add_entities(entities)
 
 
-class _RoomSenseBaseSensor(CoordinatorEntity, SensorEntity):
-    """Base class for all RoomSense room sensors."""
+class _RoomMindBaseSensor(CoordinatorEntity, SensorEntity):
+    """Base class for all RoomMind room sensors."""
 
     _attr_has_entity_name = True
     _data_key: str  # Key in the room state dict (e.g. "current_temp")
 
     def __init__(
         self,
-        coordinator: RoomSenseCoordinator,
+        coordinator: RoomMindCoordinator,
         area_id: str,
         suffix: str,
         name_label: str,
@@ -73,22 +73,22 @@ class _RoomSenseBaseSensor(CoordinatorEntity, SensorEntity):
         return None
 
 
-class RoomSenseTargetTemperatureSensor(_RoomSenseBaseSensor):
-    """Sensor showing the target temperature for a RoomSense room."""
+class RoomMindTargetTemperatureSensor(_RoomMindBaseSensor):
+    """Sensor showing the target temperature for a RoomMind room."""
 
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _data_key = "target_temp"
 
-    def __init__(self, coordinator: RoomSenseCoordinator, area_id: str) -> None:
+    def __init__(self, coordinator: RoomMindCoordinator, area_id: str) -> None:
         super().__init__(coordinator, area_id, "target_temp", "Target Temperature")
 
 
-class RoomSenseModeSensor(_RoomSenseBaseSensor):
-    """Sensor showing the current mode for a RoomSense room."""
+class RoomMindModeSensor(_RoomMindBaseSensor):
+    """Sensor showing the current mode for a RoomMind room."""
 
     _data_key = "mode"
 
-    def __init__(self, coordinator: RoomSenseCoordinator, area_id: str) -> None:
+    def __init__(self, coordinator: RoomMindCoordinator, area_id: str) -> None:
         super().__init__(coordinator, area_id, "mode", "Mode")
 
     @property

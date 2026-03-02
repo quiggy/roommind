@@ -1,4 +1,4 @@
-"""Fixtures for RoomSense tests."""
+"""Fixtures for RoomMind tests."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.roomsense.store import RoomSenseStore
+from custom_components.roommind.store import RoomMindStore
 
 
 @pytest.fixture
@@ -34,8 +34,8 @@ def mock_config_entry():
 
 @pytest.fixture
 def store(hass):
-    """Return a RoomSenseStore with mocked HA storage backend."""
-    s = RoomSenseStore(hass)
+    """Return a RoomMindStore with mocked HA storage backend."""
+    s = RoomMindStore(hass)
     s._store = AsyncMock()
     s._store.async_load = AsyncMock(return_value=None)
     s._store.async_save = AsyncMock()

@@ -33,8 +33,8 @@ interface AreaInfo {
   tempSensorCount: number;
 }
 
-@customElement("roomsense-panel")
-export class RoomSensePanel extends LitElement {
+@customElement("roommind-panel")
+export class RoomMindPanel extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @property({ type: Boolean, reflect: true }) public narrow = false;
   @property({ type: Object }) public route: { path: string } = { path: "" };
@@ -625,7 +625,7 @@ export class RoomSensePanel extends LitElement {
         anyone_home: boolean;
         presence_persons: string[];
       }>({
-        type: "roomsense/rooms/list",
+        type: "roommind/rooms/list",
       });
       this._rooms = result.rooms;
       this._vacationActive = result.vacation_active ?? false;
@@ -637,7 +637,7 @@ export class RoomSensePanel extends LitElement {
       this._anyoneHome = result.anyone_home ?? true;
       this._presencePersons = result.presence_persons ?? [];
     } catch (err) {
-      console.debug("[RoomSense] loadRooms:", err);
+      console.debug("[RoomMind] loadRooms:", err);
     } finally {
       this._roomsLoaded = true;
     }
@@ -659,14 +659,14 @@ export class RoomSensePanel extends LitElement {
 
     try {
       await this.hass.callWS({
-        type: "roomsense/rooms/delete",
+        type: "roommind/rooms/delete",
         area_id: this._selectedAreaId,
       });
       this._selectedAreaId = null;
       this._navigate("");
       this._loadRooms();
     } catch (err) {
-      console.debug("[RoomSense] deleteRoom:", err);
+      console.debug("[RoomMind] deleteRoom:", err);
     }
   }
 
@@ -689,9 +689,9 @@ export class RoomSensePanel extends LitElement {
     const newHidden = [...new Set([...this._hiddenRooms, e.detail.areaId])];
     this._hiddenRooms = newHidden;
     try {
-      await this.hass.callWS({ type: "roomsense/settings/save", hidden_rooms: newHidden });
+      await this.hass.callWS({ type: "roommind/settings/save", hidden_rooms: newHidden });
     } catch (err) {
-      console.debug("[RoomSense] hideRoom:", err);
+      console.debug("[RoomMind] hideRoom:", err);
     }
   }
 
@@ -700,9 +700,9 @@ export class RoomSensePanel extends LitElement {
     this._hiddenRooms = newHidden;
     if (newHidden.length === 0) this._showHiddenRooms = false;
     try {
-      await this.hass.callWS({ type: "roomsense/settings/save", hidden_rooms: newHidden });
+      await this.hass.callWS({ type: "roommind/settings/save", hidden_rooms: newHidden });
     } catch (err) {
-      console.debug("[RoomSense] unhideRoom:", err);
+      console.debug("[RoomMind] unhideRoom:", err);
     }
   }
 
@@ -729,14 +729,14 @@ export class RoomSensePanel extends LitElement {
   private async _clearVacation() {
     try {
       await this.hass.callWS({
-        type: "roomsense/settings/save",
+        type: "roommind/settings/save",
         vacation_until: null,
       });
       this._vacationActive = false;
       this._vacationTemp = null;
       this._vacationUntil = null;
     } catch (err) {
-      console.debug("[RoomSense] clearVacation:", err);
+      console.debug("[RoomMind] clearVacation:", err);
     }
   }
 
@@ -792,7 +792,7 @@ export class RoomSensePanel extends LitElement {
   }
 
   private _navigate(path: string) {
-    history.replaceState(null, "", `/roomsense${path}`);
+    history.replaceState(null, "", `/roommind${path}`);
     window.dispatchEvent(new Event("location-changed"));
   }
 
@@ -821,6 +821,6 @@ export class RoomSensePanel extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "roomsense-panel": RoomSensePanel;
+    "roommind-panel": RoomMindPanel;
   }
 }
