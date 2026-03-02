@@ -827,9 +827,9 @@
             <span class="schedule-link" @click=${()=>Ee(this,this.scheduleSelectorEntity)}>${((a=(o=(s=(i=this.hass)==null?void 0:i.states)==null?void 0:s[this.scheduleSelectorEntity])==null?void 0:o.attributes)==null?void 0:a.friendly_name)||this.scheduleSelectorEntity}</span>
           </div>`:h}
     `}_renderEditMode(){const e=this.hass.language,t=this.schedules.length>=2;return l`
-      ${this._renderSelectorSection()}
       ${this._renderScheduleList(t)}
       ${this._renderAddSchedule()}
+      ${this._renderSelectorSection()}
 
       <div class="temp-inputs">
         <div class="temp-input-group">
@@ -893,7 +893,7 @@
         </div>
       </ha-expansion-panel>
 
-    `}_renderSelectorSection(){var s,o;const e=this.hass.language;if(!(this.schedules.length>0))return h;const i=this.scheduleSelectorEntity?(o=(s=this.hass)==null?void 0:s.states)==null?void 0:o[this.scheduleSelectorEntity]:null;return l`
+    `}_renderSelectorSection(){var s,o;const e=this.hass.language;if(!(this.schedules.length>=2))return h;const i=this.scheduleSelectorEntity?(o=(s=this.hass)==null?void 0:s.states)==null?void 0:o[this.scheduleSelectorEntity]:null;return l`
       <div class="selector-section">
         <label class="form-label">${n("schedule.selector_label",e)}</label>
         <ha-entity-picker

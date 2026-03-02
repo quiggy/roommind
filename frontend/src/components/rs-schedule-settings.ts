@@ -381,9 +381,9 @@ export class RsScheduleSettings extends LitElement {
     const hasMultiple = this.schedules.length >= 2;
 
     return html`
-      ${this._renderSelectorSection()}
       ${this._renderScheduleList(hasMultiple)}
       ${this._renderAddSchedule()}
+      ${this._renderSelectorSection()}
 
       <div class="temp-inputs">
         <div class="temp-input-group">
@@ -452,7 +452,7 @@ export class RsScheduleSettings extends LitElement {
 
   private _renderSelectorSection() {
     const l = this.hass.language;
-    const showSelector = this.schedules.length > 0;
+    const showSelector = this.schedules.length >= 2;
 
     if (!showSelector) return nothing;
 
