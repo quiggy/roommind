@@ -293,13 +293,16 @@ export class RsAreaCard extends LitElement {
     const live = this.config?.live;
     const mode = live?.mode;
 
+    const hasSensorData = !isConfigured && live && (live.current_temp !== null || live.current_humidity !== null);
     const accentClass = isConfigured
       ? mode === "heating"
         ? "accent-heating"
         : mode === "cooling"
           ? "accent-cooling"
           : "accent-idle"
-      : "accent-unconfigured";
+      : hasSensorData
+        ? "accent-idle"
+        : "accent-unconfigured";
 
     return html`
       <ha-card
@@ -328,7 +331,11 @@ export class RsAreaCard extends LitElement {
               : nothing}
           </div>
 
-          ${isConfigured ? this._renderConfigured() : this._renderUnconfigured(hasClimateDevices)}
+          ${isConfigured
+            ? this._renderConfigured()
+            : this.config?.live && (this.config.live.current_temp !== null || this.config.live.current_humidity !== null)
+              ? this._renderSensorOnly()
+              : this._renderUnconfigured(hasClimateDevices)}
         </div>
       </ha-card>
     `;
@@ -403,6 +410,38 @@ export class RsAreaCard extends LitElement {
           ? html`<ha-icon class="away-icon" icon="mdi:home-off-outline"></ha-icon>`
           : nothing}
       </span>
+    `;
+  }
+
+  private _renderSensorOnly() {
+    const live = this.config!.live!;
+
+    return html`
+      <div class="temp-section">
+        ${live.current_temp !== null
+          ? html`
+              <span class="current-temp">${formatTemp(live.current_temp, this.hass)}</span>
+              <span class="temp-unit">${tempUnit(this.hass)}</span>
+            `
+          : html`<span class="no-temp">--</span>`}
+      </div>
+      <div class="card-footer">
+        <span class="humidity-info">
+          ${live.current_humidity !== null
+            ? localize("card.humidity", this.hass.language, { value: live.current_humidity.toFixed(0) })
+            : nothing}
+        </span>
+        <span class="badge-row">
+          ${live.mold_risk_level && live.mold_risk_level !== "ok"
+            ? html`<span class="mold-badge ${live.mold_risk_level}">
+                <ha-icon icon="mdi:water-alert"></ha-icon>
+                ${live.mold_risk_level === "critical"
+                  ? localize("card.mold_critical", this.hass.language)
+                  : localize("card.mold_warning", this.hass.language)}
+              </span>`
+            : nothing}
+        </span>
+      </div>
     `;
   }
 
