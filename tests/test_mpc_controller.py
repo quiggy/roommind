@@ -12,6 +12,7 @@ from custom_components.roommind.thermal_model import RoomModelManager, RCModel
 def build_hass():
     hass = MagicMock()
     hass.services.async_call = AsyncMock()
+    hass.states.get = MagicMock(return_value=None)
     return hass
 
 
@@ -784,3 +785,62 @@ class TestIsMpcActive:
         model_mgr.get_mode_counts = MagicMock(return_value=(100, 30, 0))
         result = is_mpc_active(model_mgr, "living_room", True, False, 20.0, 10.0)
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Device min/max temperature clamping
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_apply_clamps_to_device_max_temp():
+    """Temperature is clamped to device max_temp attribute."""
+    hass = build_hass()
+    mock_state = MagicMock()
+    mock_state.state = "off"
+    mock_state.attributes = {"min_temp": 5.0, "max_temp": 25.0, "temperature": None}
+    hass.states.get = MagicMock(return_value=mock_state)
+
+    room = make_room()
+    model_mgr = RoomModelManager()
+    ctrl = MPCController(
+        hass, room, model_manager=model_mgr,
+        outdoor_temp=5.0, settings={}, has_external_sensor=True,
+    )
+    # Heating with full power tries to set 30°C (HEATING_BOOST_TARGET)
+    await ctrl.async_apply("heating", 21.0, power_fraction=1.0, current_temp=18.0)
+
+    set_temp_calls = [
+        c for c in hass.services.async_call.call_args_list
+        if c[0][1] == "set_temperature"
+    ]
+    assert set_temp_calls
+    temp_arg = set_temp_calls[0][0][2]["temperature"]
+    assert temp_arg == 25.0  # clamped to device max
+
+
+@pytest.mark.asyncio
+async def test_apply_clamps_to_device_min_temp():
+    """Temperature is clamped to device min_temp attribute."""
+    hass = build_hass()
+    mock_state = MagicMock()
+    mock_state.state = "off"
+    mock_state.attributes = {"min_temp": 10.0, "max_temp": 30.0, "temperature": None}
+    hass.states.get = MagicMock(return_value=mock_state)
+
+    room = make_room(thermostats=[], acs=["climate.ac"])
+    model_mgr = RoomModelManager()
+    ctrl = MPCController(
+        hass, room, model_manager=model_mgr,
+        outdoor_temp=35.0, settings={}, has_external_sensor=True,
+    )
+    # Cooling with target below device min
+    await ctrl.async_apply("cooling", 8.0)
+
+    set_temp_calls = [
+        c for c in hass.services.async_call.call_args_list
+        if c[0][1] == "set_temperature"
+    ]
+    assert set_temp_calls
+    temp_arg = set_temp_calls[0][0][2]["temperature"]
+    assert temp_arg == 10.0  # clamped to device min

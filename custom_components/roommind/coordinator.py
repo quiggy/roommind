@@ -628,9 +628,15 @@ class RoomMindCoordinator(DataUpdateCoordinator):
                         "climate", "set_hvac_mode",
                         {"entity_id": eid, "hvac_mode": "heat"}, blocking=True,
                     )
+                    boost_temp = celsius_to_ha_temp(self.hass, HEATING_BOOST_TARGET)
+                    eid_state = self.hass.states.get(eid)
+                    if eid_state:
+                        dev_max = eid_state.attributes.get("max_temp")
+                        if dev_max is not None and boost_temp > dev_max:
+                            boost_temp = dev_max
                     await self.hass.services.async_call(
                         "climate", "set_temperature",
-                        {"entity_id": eid, "temperature": celsius_to_ha_temp(self.hass, HEATING_BOOST_TARGET)},
+                        {"entity_id": eid, "temperature": boost_temp},
                         blocking=True,
                     )
                     self._valve_cycling[eid] = now
