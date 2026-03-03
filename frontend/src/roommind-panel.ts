@@ -60,6 +60,7 @@ export class RoomMindPanel extends LitElement {
   @state() private _roomOrder: string[] = [];
   @state() private _groupByFloor = false;
   @state() private _reorderMode = false;
+  @state() private _elementsLoaded = false;
 
   private _refreshInterval?: ReturnType<typeof setInterval>;
   private _routeApplied = false;
@@ -346,7 +347,9 @@ export class RoomMindPanel extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    loadHaElements();
+    loadHaElements().then(() => {
+      this._elementsLoaded = true;
+    });
     this._loadRooms();
     this._refreshInterval = setInterval(() => this._loadRooms(), 5000);
     this.addEventListener("save-status", this._onSaveStatus as EventListener);
@@ -367,6 +370,8 @@ export class RoomMindPanel extends LitElement {
   }
 
   render() {
+    if (!this._elementsLoaded) return html``;
+
     const l = this.hass.language;
     const inDetail = !!this._selectedAreaId;
     const detailArea = inDetail ? this.hass?.areas?.[this._selectedAreaId!] : null;
