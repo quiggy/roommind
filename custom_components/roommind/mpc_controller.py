@@ -26,6 +26,89 @@ from .thermal_model import RoomModelManager
 
 _LOGGER = logging.getLogger(__name__)
 
+
+async def async_turn_off_climate(
+    hass: HomeAssistant,
+    entity_id: str,
+    *,
+    area_id: str = "unknown",
+) -> None:
+    """Turn off a climate entity, falling back to min_temp for heat-only devices.
+
+    Some TRVs (e.g. Shelly) only support hvac_modes: ["heat"] with no "off".
+    For these devices, setting the temperature to min_temp effectively closes
+    the valve.  For cooling-only devices without "off", max_temp is used.
+    """
+    state = hass.states.get(entity_id)
+    hvac_modes: list[str] = (state.attributes.get("hvac_modes") or []) if state else []
+
+    # Normal path: "off" is supported (or modes unknown → assume supported)
+    if not hvac_modes or "off" in hvac_modes:
+        if state and state.state == "off":
+            return  # already off
+        try:
+            await hass.services.async_call(
+                "climate",
+                "set_hvac_mode",
+                {"entity_id": entity_id, "hvac_mode": "off"},
+                blocking=True,
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning(
+                "Area '%s': climate.set_hvac_mode(off) failed on '%s'",
+                area_id,
+                entity_id,
+                exc_info=True,
+            )
+        return
+
+    # Fallback: device does not support "off" → set to min_temp / max_temp
+    is_cooling = "cool" in hvac_modes or "heat_cool" in hvac_modes
+    fallback_temp = (
+        state.attributes.get("max_temp") if is_cooling else state.attributes.get("min_temp")
+    )
+
+    if fallback_temp is None:
+        _LOGGER.warning(
+            "Area '%s': device '%s' has no 'off' mode and no %s attribute, "
+            "cannot turn off reliably",
+            area_id,
+            entity_id,
+            "max_temp" if is_cooling else "min_temp",
+        )
+        return
+
+    # Redundancy: skip if already at fallback temp
+    current_temp_setting = state.attributes.get("temperature")
+    if (
+        current_temp_setting is not None
+        and round(current_temp_setting, 1) == round(fallback_temp, 1)
+    ):
+        return
+
+    _LOGGER.debug(
+        "Area '%s': device '%s' has no 'off' mode, setting temperature to %s as fallback",
+        area_id,
+        entity_id,
+        fallback_temp,
+    )
+    try:
+        await hass.services.async_call(
+            "climate",
+            "set_temperature",
+            {"entity_id": entity_id, "temperature": fallback_temp},
+            blocking=True,
+        )
+    except Exception:  # noqa: BLE001
+        _LOGGER.warning(
+            "Area '%s': climate.set_temperature(%s) fallback failed on '%s'",
+            area_id,
+            fallback_temp,
+            entity_id,
+            exc_info=True,
+        )
+
+
 # Maximum prediction uncertainty (degC) for MPC to be used.
 # Physical meaning: "use MPC when the 5-min prediction is accurate to ±0.5°C."
 MPC_MAX_PREDICTION_STD = 0.5
@@ -443,6 +526,11 @@ class MPCController:
     async def _call(self, service: str, data: dict) -> None:
         eid = data.get("entity_id")
         state = self.hass.states.get(eid) if eid else None
+
+        # Delegate "turn off" to fallback-aware helper (handles heat-only TRVs)
+        if service == "set_hvac_mode" and data.get("hvac_mode") == "off" and eid:
+            await async_turn_off_climate(self.hass, eid, area_id=self._area_id)
+            return
 
         # Clamp temperature to device min/max range (before redundancy check
         # so that e.g. 30°C clamped to 25°C is correctly seen as redundant

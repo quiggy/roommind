@@ -844,3 +844,204 @@ async def test_apply_clamps_to_device_min_temp():
     assert set_temp_calls
     temp_arg = set_temp_calls[0][0][2]["temperature"]
     assert temp_arg == 10.0  # clamped to device min
+
+
+# ---------------------------------------------------------------------------
+# async_turn_off_climate — unit tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_turn_off_climate_normal_device():
+    """Device with 'off' in hvac_modes uses standard set_hvac_mode off."""
+    from custom_components.roommind.mpc_controller import async_turn_off_climate
+
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {"hvac_modes": ["heat", "off"], "min_temp": 5.0}
+    hass.states.get = MagicMock(return_value=state)
+
+    await async_turn_off_climate(hass, "climate.trv")
+    hass.services.async_call.assert_called_once_with(
+        "climate", "set_hvac_mode",
+        {"entity_id": "climate.trv", "hvac_mode": "off"},
+        blocking=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_turn_off_climate_heat_only_uses_min_temp():
+    """Heat-only device (no 'off' mode) gets set_temperature with min_temp."""
+    from custom_components.roommind.mpc_controller import async_turn_off_climate
+
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {"hvac_modes": ["heat"], "min_temp": 5.0, "temperature": 21.0}
+    hass.states.get = MagicMock(return_value=state)
+
+    await async_turn_off_climate(hass, "climate.trv")
+    hass.services.async_call.assert_called_once_with(
+        "climate", "set_temperature",
+        {"entity_id": "climate.trv", "temperature": 5.0},
+        blocking=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_turn_off_climate_cool_only_uses_max_temp():
+    """Cool-only device without 'off' uses max_temp as fallback."""
+    from custom_components.roommind.mpc_controller import async_turn_off_climate
+
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "cool"
+    state.attributes = {"hvac_modes": ["cool"], "min_temp": 16.0, "max_temp": 30.0, "temperature": 20.0}
+    hass.states.get = MagicMock(return_value=state)
+
+    await async_turn_off_climate(hass, "climate.ac")
+    hass.services.async_call.assert_called_once_with(
+        "climate", "set_temperature",
+        {"entity_id": "climate.ac", "temperature": 30.0},
+        blocking=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_turn_off_climate_already_off_skipped():
+    """Device already in 'off' state: call is skipped."""
+    from custom_components.roommind.mpc_controller import async_turn_off_climate
+
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "off"
+    state.attributes = {"hvac_modes": ["heat", "off"]}
+    hass.states.get = MagicMock(return_value=state)
+
+    await async_turn_off_climate(hass, "climate.trv")
+    hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_turn_off_climate_empty_modes_uses_off():
+    """Empty hvac_modes list: assume 'off' is supported (backward compat)."""
+    from custom_components.roommind.mpc_controller import async_turn_off_climate
+
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {"hvac_modes": []}
+    hass.states.get = MagicMock(return_value=state)
+
+    await async_turn_off_climate(hass, "climate.trv")
+    hass.services.async_call.assert_called_once_with(
+        "climate", "set_hvac_mode",
+        {"entity_id": "climate.trv", "hvac_mode": "off"},
+        blocking=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_turn_off_climate_no_modes_attr_uses_off():
+    """No hvac_modes attribute at all: assume 'off' is supported (backward compat)."""
+    from custom_components.roommind.mpc_controller import async_turn_off_climate
+
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {"min_temp": 5.0}
+    hass.states.get = MagicMock(return_value=state)
+
+    await async_turn_off_climate(hass, "climate.trv")
+    hass.services.async_call.assert_called_once_with(
+        "climate", "set_hvac_mode",
+        {"entity_id": "climate.trv", "hvac_mode": "off"},
+        blocking=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_turn_off_climate_heat_only_no_min_temp():
+    """Heat-only device without min_temp: logs warning, no crash."""
+    from custom_components.roommind.mpc_controller import async_turn_off_climate
+
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {"hvac_modes": ["heat"]}
+    hass.states.get = MagicMock(return_value=state)
+
+    await async_turn_off_climate(hass, "climate.trv")
+    hass.services.async_call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_turn_off_climate_heat_only_already_at_min_temp():
+    """Heat-only device already at min_temp: redundant call skipped."""
+    from custom_components.roommind.mpc_controller import async_turn_off_climate
+
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {"hvac_modes": ["heat"], "min_temp": 5.0, "temperature": 5.0}
+    hass.states.get = MagicMock(return_value=state)
+
+    await async_turn_off_climate(hass, "climate.trv")
+    hass.services.async_call.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# async_apply integration tests for heat-only TRV fallback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_apply_idle_heat_only_trv():
+    """Idle mode on heat-only TRV sends min_temp instead of set_hvac_mode off."""
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {"hvac_modes": ["heat"], "min_temp": 5.0, "max_temp": 30.0, "temperature": 21.0}
+    hass.states.get = MagicMock(return_value=state)
+
+    room = make_room()
+    model_mgr = RoomModelManager()
+    ctrl = MPCController(
+        hass, room, model_manager=model_mgr,
+        outdoor_temp=5.0, settings={}, has_external_sensor=True,
+    )
+    await ctrl.async_apply("idle", 21.0)
+
+    calls = hass.services.async_call.call_args_list
+    off_calls = [c for c in calls if c[0][1] == "set_hvac_mode" and c[0][2].get("hvac_mode") == "off"]
+    assert len(off_calls) == 0
+    temp_calls = [c for c in calls if c[0][1] == "set_temperature"]
+    assert len(temp_calls) >= 1
+    assert temp_calls[0][0][2]["temperature"] == 5.0
+
+
+@pytest.mark.asyncio
+async def test_managed_mode_heat_gated_heat_only_trv():
+    """Managed mode: can_heat=False on heat-only TRV uses min_temp fallback."""
+    hass = build_hass()
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {"hvac_modes": ["heat"], "min_temp": 5.0, "max_temp": 30.0, "temperature": 21.0}
+    hass.states.get = MagicMock(return_value=state)
+
+    room = make_room(acs=["climate.ac"])
+    model_mgr = RoomModelManager()
+    ctrl = MPCController(
+        hass, room, model_manager=model_mgr,
+        outdoor_temp=25.0,  # above heating max → can_heat=False
+        settings={"outdoor_heating_max": 22.0},
+        has_external_sensor=False,
+    )
+    await ctrl.async_apply("heating", 21.0)
+
+    calls = hass.services.async_call.call_args_list
+    off_calls = [c for c in calls if c[0][1] == "set_hvac_mode" and c[0][2].get("hvac_mode") == "off"]
+    assert len(off_calls) == 0
+    temp_calls = [c for c in calls if c[0][1] == "set_temperature" and c[0][2]["temperature"] == 5.0]
+    assert len(temp_calls) >= 1

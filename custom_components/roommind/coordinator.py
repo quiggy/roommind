@@ -15,7 +15,7 @@ from .const import DEFAULT_MOLD_COOLDOWN_MINUTES, DEFAULT_MOLD_HUMIDITY_THRESHOL
 from .mold_utils import calculate_mold_risk, mold_prevention_delta
 from .notification_utils import NotificationThrottler, dismiss_mold_notification, async_send_mold_notification
 from .history_store import HistoryStore
-from .mpc_controller import DEFAULT_OUTDOOR_TEMP_FALLBACK, MPCController, get_can_heat_cool, is_mpc_active
+from .mpc_controller import DEFAULT_OUTDOOR_TEMP_FALLBACK, MPCController, async_turn_off_climate, get_can_heat_cool, is_mpc_active
 from .sensor_utils import read_sensor_value
 from .solar import compute_q_solar_norm
 from .temp_utils import celsius_delta_to_ha, celsius_to_ha_temp, ha_temp_to_celsius, ha_temp_unit_str
@@ -577,10 +577,7 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         ]
         for eid in finished:
             try:
-                await self.hass.services.async_call(
-                    "climate", "set_hvac_mode",
-                    {"entity_id": eid, "hvac_mode": "off"}, blocking=True,
-                )
+                await async_turn_off_climate(self.hass, eid, area_id="valve_protection")
             except Exception:  # noqa: BLE001
                 _LOGGER.warning("Valve protection: failed to close '%s'", eid)
             self._valve_cycling.pop(eid, None)
@@ -596,10 +593,7 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             # Disabled — close any active cycles before clearing
             for eid in list(self._valve_cycling):
                 try:
-                    await self.hass.services.async_call(
-                        "climate", "set_hvac_mode",
-                        {"entity_id": eid, "hvac_mode": "off"}, blocking=True,
-                    )
+                    await async_turn_off_climate(self.hass, eid, area_id="valve_protection")
                 except Exception:  # noqa: BLE001
                     _LOGGER.warning("Valve protection: failed to close '%s' on disable", eid)
             self._valve_cycling.clear()
