@@ -2185,7 +2185,7 @@
           <div style="padding: 0 16px 16px">
             ${this._selectedPresencePersons.length>0?l`
               <div class="presence-list">
-                ${this._selectedPresencePersons.map(e=>{var o,a,r;const t=((a=(o=this.hass.states[e])==null?void 0:o.attributes)==null?void 0:a.friendly_name)??e.split(".").slice(1).join("."),i=(r=this.hass.states[e])==null?void 0:r.state,s=e.startsWith("person.")?i==="home":i==="on";return l`
+                ${this._selectedPresencePersons.map(e=>{var o,a,r;const t=((a=(o=this.hass.states[e])==null?void 0:o.attributes)==null?void 0:a.friendly_name)??e.split(".").slice(1).join("."),i=(r=this.hass.states[e])==null?void 0:r.state,s=e.startsWith("person.")||e.startsWith("device_tracker.")?i==="home":i==="on";return l`
                     <div class="presence-row ${s?"home":"away"}">
                       <span class="presence-dot"></span>
                       <span class="presence-name">${t}</span>
