@@ -46,7 +46,7 @@ def _is_person_home(hass: HomeAssistant, person_entity: str) -> bool:
     state = hass.states.get(person_entity)
     if state is None or state.state in ("unavailable", "unknown"):
         return True  # fail-safe: treat as home
-    return state.state == "home"
+    return bool(state.state == "home")
 
 
 async def async_send_mold_notification(

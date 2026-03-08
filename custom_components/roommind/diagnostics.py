@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from .const import DOMAIN, VERSION
 
 
-def _build_model_info(estimator) -> dict:
+def _build_model_info(estimator: Any) -> dict[str, Any]:
     """Build model diagnostics from a ThermalEKF estimator."""
     rc = estimator.get_model()
     return {
@@ -112,7 +112,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, config_entry: 
             "enabled": settings.get("presence_enabled", False),
             "persons": settings.get("presence_persons", []),
             "person_states": {
-                pid: (hass.states.get(pid).state if hass.states.get(pid) else "unavailable")
+                pid: (s.state if (s := hass.states.get(pid)) else "unavailable")
                 for pid in settings.get("presence_persons", [])
             },
         },

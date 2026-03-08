@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigFlow
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 
 from .const import DOMAIN
 
 
-class RoomMindConfigFlow(ConfigFlow, domain=DOMAIN):
+class RoomMindConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Handle the config flow for RoomMind."""
 
     VERSION = 1
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, str] | None = None) -> ConfigFlowResult:
         """Handle the initial step – just confirm setup."""
         if user_input is not None:
             # Prevent multiple instances

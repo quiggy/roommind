@@ -37,7 +37,7 @@ class RoomMindStore:
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialise the store."""
-        self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self._store: Store[dict] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._data: dict[str, dict] = {}
         self._settings: dict = {}
         self._thermal_data: dict = {}

@@ -6,6 +6,7 @@ import logging
 import math
 import time
 from collections.abc import Callable
+from typing import Any, cast
 
 from homeassistant.core import HomeAssistant
 
@@ -29,7 +30,7 @@ from .thermal_model import RoomModelManager
 
 _LOGGER = logging.getLogger(__name__)
 
-_SENTINEL = object()  # default marker for backward-compat keyword detection
+_SENTINEL: object = object()  # default marker for backward-compat keyword detection
 
 
 async def async_turn_off_climate(
@@ -68,6 +69,7 @@ async def async_turn_off_climate(
         return
 
     # Fallback: device does not support "off" → set to min_temp / max_temp
+    assert state is not None  # guaranteed: hvac_modes non-empty implies state exists
     is_cooling = "cool" in hvac_modes or "heat_cool" in hvac_modes
     fallback_temp = state.attributes.get("max_temp") if is_cooling else state.attributes.get("min_temp")
 
@@ -225,7 +227,7 @@ class MPCController:
         settings: dict | None = None,
         previous_mode: str = MODE_IDLE,
         has_external_sensor: bool = True,
-        target_resolver: Callable[[float], float] | None = None,
+        target_resolver: Callable[[float], TargetTemps | float] | None = None,
         q_solar: float = 0.0,
         latitude: float = 0.0,
         longitude: float = 0.0,
@@ -272,7 +274,7 @@ class MPCController:
         current_temp: float | None,
         targets: TargetTemps | float | None = None,
         *,
-        target_temp: float | None = _SENTINEL,
+        target_temp: float | None | object = _SENTINEL,
     ) -> tuple[str, float]:
         """Evaluate what action to take. Returns (mode, power_fraction).
 
@@ -282,7 +284,7 @@ class MPCController:
         """
         # Backward compat: accept legacy keyword
         if target_temp is not _SENTINEL:
-            targets = target_temp
+            targets = target_temp  # type: ignore[assignment]
 
         # Backward compat: single float → TargetTemps(heat=val, cool=val)
         if not isinstance(targets, TargetTemps):
@@ -371,11 +373,13 @@ class MPCController:
             raw_targets = [self._target_resolver(now + i * dt_seconds) for i in range(horizon_blocks)]
             # Extract separate heat and cool series from TargetTemps
             if raw_targets and isinstance(raw_targets[0], TargetTemps):
-                heat_target_series = [t.heat if t.heat is not None else current_temp for t in raw_targets]
-                cool_target_series = [t.cool if t.cool is not None else current_temp for t in raw_targets]
+                tt_targets = cast(list[TargetTemps], raw_targets)
+                heat_target_series = [t.heat if t.heat is not None else current_temp for t in tt_targets]
+                cool_target_series = [t.cool if t.cool is not None else current_temp for t in tt_targets]
             else:
                 # Legacy resolver returning float|None
-                heat_target_series = [t if t is not None else current_temp for t in raw_targets]
+                float_targets = cast(list[float | None], raw_targets)
+                heat_target_series = [t if t is not None else current_temp for t in float_targets]
                 cool_target_series = list(heat_target_series)
         else:
             fallback_h = targets.heat if targets.heat is not None else current_temp
@@ -501,7 +505,7 @@ class MPCController:
             acs_can_heat=check_acs_can_heat(self.hass, self.room_config),
         )
 
-    def _compute_horizon_blocks(self, model, current_temp, target_temp) -> int:
+    def _compute_horizon_blocks(self, model: Any, current_temp: float, target_temp: float | None) -> int:
         """Compute adaptive horizon in blocks.
 
         target_temp can be a single value or the primary target from TargetTemps.
@@ -593,12 +597,12 @@ class MPCController:
         current_temp: float | None = None,
         exclude_eids: set[str] | None = None,
         *,
-        target_temp: float | None = _SENTINEL,
+        target_temp: float | None | object = _SENTINEL,
     ) -> None:
         """Apply the determined mode with proportional valve control."""
         # Backward compat: accept legacy keyword
         if target_temp is not _SENTINEL:
-            targets = target_temp
+            targets = target_temp  # type: ignore[assignment]
 
         # Backward compat: single float → TargetTemps
         if not isinstance(targets, TargetTemps):
@@ -615,6 +619,10 @@ class MPCController:
 
         if mode != MODE_IDLE and target_temp is None:
             mode = MODE_IDLE
+
+        # After the guard above, target_temp is guaranteed non-None for HEATING/COOLING.
+        # We assign a typed local for downstream use.
+        effective_target: float = target_temp if target_temp is not None else 0.0
 
         can_heat, can_cool = self._get_can_heat_cool()
 
@@ -668,17 +676,17 @@ class MPCController:
                     1,
                 )
                 # Floor: never below target (TRV must always aim to heat toward target)
-                trv_target = max(target_temp, trv_target)
+                trv_target = max(effective_target, trv_target)
                 # Ceiling: never above boost target
                 trv_target = min(HEATING_BOOST_TARGET, trv_target)
             else:
-                trv_target = HEATING_BOOST_TARGET if self.has_external_sensor else target_temp
+                trv_target = HEATING_BOOST_TARGET if self.has_external_sensor else effective_target
             ha_trv = celsius_to_ha_temp(self.hass, trv_target)
             for eid in thermostats:
                 await self._call("set_hvac_mode", {"entity_id": eid, "hvac_mode": "heat"})
                 await self._call("set_temperature", {"entity_id": eid, "temperature": ha_trv})
             # ACs: heat-capable ones get actual target temp, others turn off
-            ha_target = celsius_to_ha_temp(self.hass, target_temp)
+            ha_target = celsius_to_ha_temp(self.hass, effective_target)
             for eid in self.acs:
                 ac_state = self.hass.states.get(eid)
                 ac_modes = (ac_state.attributes.get("hvac_modes") or []) if ac_state else []
@@ -694,7 +702,7 @@ class MPCController:
                 else:
                     await self._call("set_hvac_mode", {"entity_id": eid, "hvac_mode": "off"})
         elif mode == MODE_COOLING:
-            ha_target = celsius_to_ha_temp(self.hass, target_temp)
+            ha_target = celsius_to_ha_temp(self.hass, effective_target)
             for eid in self.acs:
                 await self._call("set_hvac_mode", {"entity_id": eid, "hvac_mode": "cool"})
                 await self._call("set_temperature", {"entity_id": eid, "temperature": ha_target})

@@ -87,7 +87,7 @@ def _clear_sky_ghi(elevation_deg: float) -> float:
     dni = _SOLAR_CONSTANT * 0.7 ** (am**0.678)
 
     # GHI = DNI × sin(elevation)
-    return max(0.0, dni * sin_elev)
+    return float(max(0.0, dni * sin_elev))
 
 
 def _cloud_attenuation(cloud_coverage: float) -> float:
@@ -100,7 +100,7 @@ def _cloud_attenuation(cloud_coverage: float) -> float:
         Multiplicative factor in (0, 1].
     """
     n = max(0.0, min(1.0, cloud_coverage / 100.0))
-    return 1.0 - 0.75 * (n**3.4)
+    return float(1.0 - 0.75 * (n**3.4))
 
 
 # -- Public API --

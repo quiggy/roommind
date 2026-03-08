@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -89,7 +90,10 @@ class RoomMindOverrideClimate(CoordinatorEntity, ClimateEntity):
         if self._is_override_active():
             store = self.coordinator.hass.data[DOMAIN]["store"]
             room = store.get_room(self._area_id)
-            return room["override_temp"]
+            if room:
+                val = room.get("override_temp")
+                if isinstance(val, (int, float)):
+                    return float(val)
         return DEFAULT_COMFORT_TEMP
 
     @property
@@ -101,9 +105,10 @@ class RoomMindOverrideClimate(CoordinatorEntity, ClimateEntity):
         room_data = data.get("rooms", {}).get(self._area_id)
         if not room_data:
             return None
-        return room_data.get("current_temp")
+        val = room_data.get("current_temp")
+        return float(val) if isinstance(val, (int, float)) else None
 
-    async def async_set_temperature(self, **kwargs) -> None:
+    async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set override temperature."""
         temperature = kwargs.get("temperature")
         if temperature is None:

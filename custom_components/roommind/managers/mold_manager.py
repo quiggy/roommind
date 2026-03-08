@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from homeassistant.core import HomeAssistant
@@ -55,8 +56,8 @@ class MoldManager:
         current_humidity: float | None,
         outdoor_temp: float | None,
         settings: dict,
-        celsius_delta_to_ha_fn=None,
-        ha_temp_unit_str_fn=None,
+        celsius_delta_to_ha_fn: Callable[[float], float] | None = None,
+        ha_temp_unit_str_fn: Callable[[], str] | None = None,
     ) -> MoldResult:
         """Evaluate mold risk and prevention for a room.
 

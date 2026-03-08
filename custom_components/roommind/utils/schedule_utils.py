@@ -230,7 +230,8 @@ async def read_schedule_blocks(
             return_response=True,
         )
         if response:
-            return response.get(schedule_entity_id, {}) or None
+            result = response.get(schedule_entity_id, {})
+            return dict(result) if isinstance(result, dict) else None
     except Exception:  # noqa: BLE001
         _LOGGER.debug("schedule.get_schedule failed for %s", schedule_entity_id)
     return None

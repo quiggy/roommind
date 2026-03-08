@@ -38,7 +38,8 @@ if TYPE_CHECKING:
 
 def _get_coordinator(hass: HomeAssistant) -> RoomMindCoordinator | None:
     """Return the RoomMindCoordinator from hass.data, or None."""
-    return hass.data.get(DOMAIN, {}).get("coordinator")
+    coordinator: RoomMindCoordinator | None = hass.data.get(DOMAIN, {}).get("coordinator")
+    return coordinator
 
 
 _ROOM_SAVE_FIELDS = (
@@ -113,7 +114,7 @@ _SETTINGS_SAVE_FIELDS = (
 # existing callers (incl. tests) keep working.
 
 
-def _compute_anyone_home(hass, settings):
+def _compute_anyone_home(hass: HomeAssistant, settings: dict) -> bool:
     """Return True if at least one tracked person is home (or fail-safe)."""
     from .utils.presence_utils import is_presence_away
 

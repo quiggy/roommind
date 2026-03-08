@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import timedelta
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -118,6 +119,11 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         self._switch_entity_areas: set[str] = set()
         self._binary_sensor_entity_areas: set[str] = set()
         self._climate_entity_areas: set[str] = set()
+        # Entity platform callbacks, set by platform async_setup_entry
+        self.async_add_entities: Any = None
+        self.async_add_switch_entities: Any = None
+        self.async_add_climate_entities: Any = None
+        self.async_add_binary_sensor_entities: Any = None
 
     async def _async_update_data(self) -> dict:
         """Fetch and compute state for all rooms.
@@ -332,8 +338,8 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             current_humidity,
             self.outdoor_temp,
             settings,
-            celsius_delta_to_ha_fn=lambda d: celsius_delta_to_ha(self.hass, d),
-            ha_temp_unit_str_fn=lambda: ha_temp_unit_str(self.hass),
+            celsius_delta_to_ha_fn=lambda d: celsius_delta_to_ha(self.hass, d),  # type: ignore[misc]
+            ha_temp_unit_str_fn=lambda: ha_temp_unit_str(self.hass),  # type: ignore[misc]
         )
         mold_risk_level = mold.risk_level
         mold_surface_rh = mold.surface_rh

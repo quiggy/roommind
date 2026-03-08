@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from homeassistant.core import State
+
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
@@ -32,11 +34,11 @@ def is_presence_away(hass: HomeAssistant, room: dict, settings: dict) -> bool:
     return True
 
 
-def _is_entity_home(state) -> bool:
+def _is_entity_home(state: State) -> bool:
     """Check if a presence entity indicates someone is home.
 
     person.*/device_tracker.* use "home"/"not_home"; binary_sensor/input_boolean use "on"/"off".
     """
     if state.entity_id.startswith(("person.", "device_tracker.")):
-        return state.state == "home"
-    return state.state == "on"
+        return bool(state.state == "home")
+    return bool(state.state == "on")

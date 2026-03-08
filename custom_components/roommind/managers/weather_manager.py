@@ -39,9 +39,10 @@ class WeatherManager:
                 blocking=True,
                 return_response=True,
             )
-            forecasts = response.get(weather_entity, {}).get("forecast", [])
+            entity_data = response.get(weather_entity, {}) if isinstance(response, dict) else {}  # type: ignore[union-attr]
+            forecasts = entity_data.get("forecast", []) if isinstance(entity_data, dict) else []
             if isinstance(forecasts, list) and forecasts:
-                result = self._convert_forecast_temps(forecasts)
+                result = self._convert_forecast_temps(forecasts)  # type: ignore[arg-type]
                 self._outdoor_forecast = result
                 return result
         except Exception:  # noqa: BLE001

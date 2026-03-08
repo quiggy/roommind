@@ -68,7 +68,8 @@ class _RoomMindBaseSensor(CoordinatorEntity, SensorEntity):
         """Return the sensor value from the coordinator data."""
         room = self.coordinator.data.get("rooms", {}).get(self._area_id)
         if room:
-            return room.get(self._data_key)
+            val = room.get(self._data_key)
+            return val if isinstance(val, (float, int, str)) else None
         return None
 
 
@@ -95,5 +96,6 @@ class RoomMindModeSensor(_RoomMindBaseSensor):
         """Return the current mode, defaulting to 'idle'."""
         room = self.coordinator.data.get("rooms", {}).get(self._area_id)
         if room:
-            return room.get("mode", "idle")
+            val = room.get("mode", "idle")
+            return str(val) if val is not None else "idle"
         return "idle"

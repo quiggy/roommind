@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import math
 import time
+from typing import Any, cast
 
 from homeassistant.core import HomeAssistant
 
@@ -164,8 +165,8 @@ async def build_analytics_data(
     hass: HomeAssistant,
     area_id: str,
     range_key: str,
-    store,
-    coordinator,
+    store: Any,
+    coordinator: Any,
     custom_start: float | None = None,
     custom_end: float | None = None,
 ) -> dict:
@@ -263,7 +264,7 @@ async def build_analytics_data(
         simulate_prediction,
     )
 
-    pred_temps: list[float | None] = []
+    pred_temps: list[float | None] = list()
     prediction_enabled = settings.get("prediction_enabled", True)
     if prediction_enabled and target_forecast and coordinator:
         mgr = coordinator._model_manager
@@ -315,7 +316,7 @@ async def build_analytics_data(
 
                     sim_q_residual = compute_residual_heat(elapsed, system_type, sim_last_pf, sim_heat_dur)
 
-                pred_temps = simulate_prediction(
+                pred_temps = cast(list[float | None], simulate_prediction(
                     model=model,
                     estimator=est,
                     target_forecast=target_forecast,
@@ -332,7 +333,7 @@ async def build_analytics_data(
                     heating_system_type=system_type,
                     heating_duration_minutes=sim_heat_dur,
                     last_power_fraction=sim_last_pf,
-                )
+                ))
 
     # Merge into unified forecast points on shared 5-min grid
     forecast: list[dict] = []

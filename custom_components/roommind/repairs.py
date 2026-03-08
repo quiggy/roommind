@@ -5,6 +5,7 @@ from __future__ import annotations
 import voluptuous as vol
 from homeassistant import data_entry_flow
 from homeassistant.components.repairs import RepairsFlow
+from homeassistant.core import HomeAssistant
 
 
 class RestartRequiredFixFlow(RepairsFlow):
@@ -26,6 +27,6 @@ class RestartRequiredFixFlow(RepairsFlow):
         )
 
 
-async def async_create_fix_flow(hass, issue_id: str, data: dict[str, str] | None) -> RepairsFlow:
+async def async_create_fix_flow(hass: HomeAssistant, issue_id: str, data: dict[str, str] | None) -> RepairsFlow:
     """Create flow."""
     return RestartRequiredFixFlow()

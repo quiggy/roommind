@@ -17,8 +17,8 @@ def _is_fahrenheit(hass: HomeAssistant, entity_id: str | None = None) -> bool:
         if state:
             uom = state.attributes.get("unit_of_measurement")
             if uom:
-                return uom == "°F"
-    return hass.config.units.temperature_unit == UnitOfTemperature.FAHRENHEIT
+                return bool(uom == "°F")
+    return bool(hass.config.units.temperature_unit == UnitOfTemperature.FAHRENHEIT)
 
 
 def ha_temp_to_celsius(
