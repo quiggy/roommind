@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
+from custom_components.roommind.const import MODE_IDLE
 from custom_components.roommind.managers.weather_manager import WeatherManager
 
 SAMPLE_ROOM = {
@@ -969,6 +970,123 @@ class TestRoomMindCoordinator:
         room_state = data["rooms"]["living_room_abc12345"]
         assert room_state["mode"] == "heating"
         assert room_state["window_open"] is False
+
+    @pytest.mark.asyncio
+    async def test_window_open_delay_skips_ekf_training(self, hass, mock_config_entry):
+        """EKF training must be skipped while window is open but open_delay has not elapsed.
+
+        During the delay the temperature drops due to the open window while
+        the coordinator still heats normally.  Training the EKF on this data
+        would corrupt the thermal model parameters.
+        """
+        room_with_delay = {
+            **SAMPLE_ROOM,
+            "window_sensors": ["binary_sensor.living_room_window"],
+            "window_open_delay": 120,
+        }
+        store = _make_store_mock({"living_room_abc12345": room_with_delay})
+        hass.data = {"roommind": {"store": store}}
+
+        hass.states.get = MagicMock(
+            side_effect=make_mock_states_get(
+                window_sensors={"binary_sensor.living_room_window": "on"},
+            )
+        )
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+
+        with patch.object(
+            coordinator._model_manager,
+            "update_window_open",
+            wraps=coordinator._model_manager.update_window_open,
+        ) as mock_win_update:
+            data = await coordinator._async_update_data()
+
+        room_state = data["rooms"]["living_room_abc12345"]
+        # Still heating (delay not reached)
+        assert room_state["mode"] == "heating"
+        assert room_state["window_open"] is False
+
+        # EKF accumulator must be cleared (not carried over into next cycle)
+        assert "living_room_abc12345" not in coordinator._ekf_accumulated_dt
+        assert "living_room_abc12345" not in coordinator._ekf_accumulated_mode
+        assert "living_room_abc12345" not in coordinator._ekf_accumulated_pf
+
+        # k_window must not be learned during the delay period
+        mock_win_update.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_window_open_skips_k_window_with_residual_heat(self, hass, mock_config_entry):
+        """k_window must not be learned when residual heat is still present.
+
+        With underfloor heating the floor continues releasing heat after the
+        system stops.  Learning k_window in this state would underestimate
+        the window cooling rate because the residual heat masks it.
+        """
+        room_with_window = {
+            **SAMPLE_ROOM,
+            "window_sensors": ["binary_sensor.living_room_window"],
+            "heating_system_type": "underfloor",
+        }
+        store = _make_store_mock({"living_room_abc12345": room_with_window})
+        hass.data = {"roommind": {"store": store}}
+
+        hass.states.get = MagicMock(
+            side_effect=make_mock_states_get(
+                window_sensors={"binary_sensor.living_room_window": "on"},
+            )
+        )
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+        # Simulate residual heat: heating was active, then stopped recently.
+        # _on_since before _off_since gives a non-zero heat duration, and
+        # a recent _off_since means the exponential decay hasn't elapsed.
+        coordinator._residual_tracker._on_since["living_room_abc12345"] = time.time() - 120
+        coordinator._residual_tracker._off_since["living_room_abc12345"] = time.time() - 5
+        coordinator._residual_tracker._off_power["living_room_abc12345"] = 1.0
+        # Also set previous_mode so get_q_residual returns > 0
+        coordinator._previous_modes["living_room_abc12345"] = MODE_IDLE
+
+        with patch.object(
+            coordinator._model_manager,
+            "update_window_open",
+            wraps=coordinator._model_manager.update_window_open,
+        ) as mock_win_update:
+            await coordinator._async_update_data()
+
+        # k_window should NOT be learned because q_residual > 0
+        mock_win_update.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_window_open_learns_k_window_without_residual_heat(self, hass, mock_config_entry):
+        """k_window IS learned when window is open and no residual heat remains."""
+        room_with_window = {
+            **SAMPLE_ROOM,
+            "window_sensors": ["binary_sensor.living_room_window"],
+        }
+        store = _make_store_mock({"living_room_abc12345": room_with_window})
+        hass.data = {"roommind": {"store": store}}
+
+        hass.states.get = MagicMock(
+            side_effect=make_mock_states_get(
+                window_sensors={"binary_sensor.living_room_window": "on"},
+            )
+        )
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+
+        with patch.object(
+            coordinator._model_manager,
+            "update_window_open",
+            wraps=coordinator._model_manager.update_window_open,
+        ) as mock_win_update:
+            await coordinator._async_update_data()
+
+        # k_window should be learned (no residual heat, no delay)
+        mock_win_update.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_zero_delays_instant_behavior(self, hass, mock_config_entry):

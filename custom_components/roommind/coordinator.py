@@ -653,16 +653,29 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             dt_minutes = UPDATE_INTERVAL / 60.0
             T_outdoor = self.outdoor_temp if self.outdoor_temp is not None else current_temp
             if window_open:
-                # Window open: flush pending EKF update, then learn k_window
+                # Window open (past delay): flush pending EKF update, then
+                # learn k_window. Only learn when no residual heat remains;
+                # ongoing heat release masks the true window cooling rate.
                 self._flush_ekf_accumulator(
                     area_id, current_temp, T_outdoor, room, q_residual=q_residual, shading_factor=shading_factor
                 )
-                self._model_manager.update_window_open(
-                    area_id,
-                    current_temp,
-                    T_outdoor,
-                    dt_minutes,
+                if q_residual == 0.0:
+                    self._model_manager.update_window_open(
+                        area_id,
+                        current_temp,
+                        T_outdoor,
+                        dt_minutes,
+                    )
+            elif raw_open:
+                # Window detected open but still within open_delay. Flush
+                # accumulator and skip EKF training to prevent the fast
+                # temperature drop from corrupting thermal model parameters.
+                self._flush_ekf_accumulator(
+                    area_id, current_temp, T_outdoor, room, q_residual=q_residual, shading_factor=shading_factor
                 )
+                self._ekf_accumulated_dt.pop(area_id, None)
+                self._ekf_accumulated_mode.pop(area_id, None)
+                self._ekf_accumulated_pf.pop(area_id, None)
             elif ekf_mode is None:
                 # Unobservable device state (control disabled, no hvac_action)
                 # — flush pending data and skip training to prevent corruption.
