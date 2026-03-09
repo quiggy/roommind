@@ -177,36 +177,6 @@ export function buildChartSeries(
     });
   }
 
-  // Blind position line (secondary Y-axis, inverted: shows % closed)
-  const blindData: Array<[number, number | null]> = [];
-  let hasBlinds = false;
-  for (const p of points) {
-    const ts = p.ts * 1000;
-    if (p.blind_position != null) {
-      blindData.push([ts, 100 - p.blind_position]);
-      hasBlinds = true;
-    } else {
-      blindData.push([ts, null]);
-    }
-  }
-
-  if (hasBlinds) {
-    series.push({
-      id: "blind_position",
-      type: "line",
-      name: localize("analytics.blind_position", l),
-      color: "rgba(139, 90, 43, 0.8)",
-      data: blindData,
-      yAxisIndex: 1,
-      smooth: false,
-      showSymbol: false,
-      lineStyle: { width: 1.5, type: "dashed" },
-      areaStyle: { color: "rgba(139, 90, 43, 0.07)", origin: "start" },
-      connectNulls: false,
-      z: -1,
-    });
-  }
-
   // "Now" vertical marker line
   series.push({
     id: "now_marker",
@@ -261,16 +231,7 @@ export function buildChartOptions(
       min: rangeStart,
       max: isLive ? chartAnchor + FORECAST_MS : rangeEnd,
     },
-    yAxis: [
-      yAxis,
-      {
-        type: "value",
-        min: 0,
-        max: 100,
-        show: false,
-        splitLine: { show: false },
-      },
-    ],
+    yAxis,
     dataZoom: [
       {
         type: "inside",
@@ -300,9 +261,7 @@ export function buildChartOptions(
           if ((p.seriesId as string)?.endsWith("_events")) continue;
           const v = p.value?.[1];
           if (v == null) continue;
-          const isBlind = p.seriesId === "blind_position";
-          const valStr = isBlind ? `${Math.round(v)}%` : `${v.toFixed(1)}\u00A0${unit}`;
-          markup += `<div>${p.color ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px"></span>` : ""}${p.seriesName}: ${valStr}</div>`;
+          markup += `<div>${p.color ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px"></span>` : ""}${p.seriesName}: ${v.toFixed(1)}\u00A0${unit}</div>`;
           if (p.seriesId === "room_temp") roomVal = v;
           if (p.seriesId === "predicted_temp") predVal = v;
         }
@@ -342,6 +301,9 @@ export function buildChartOptions(
             if (closest.window_open) parts.push(localize("analytics.window_open_period", l));
             if (parts.length > 0) {
               markup += `<div style="border-top:1px solid rgba(128,128,128,0.3);margin-top:4px;padding-top:4px;color:rgba(255,255,255,0.7)">${parts.join(" \u00B7 ")}</div>`;
+            }
+            if (closest.blind_position != null) {
+              markup += `<div style="color:rgba(255,255,255,0.7)">${localize("analytics.blind_position", l)} ${100 - closest.blind_position}%</div>`;
             }
           }
         }

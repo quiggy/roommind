@@ -320,7 +320,7 @@
   "analytics.export": "Measurements",
   "analytics.heating_period": "Heating",
   "analytics.cooling_period": "Cooling",
-  "analytics.blind_position": "Blind position (%)",
+  "analytics.blind_position": "Blind position",
   "analytics.window_open_period": "Window open",
   "analytics.chart_info_title": "How to read this chart",
   "analytics.exported": "Exported!",

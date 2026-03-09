@@ -321,7 +321,7 @@
   "analytics.heating_period": "Heizen",
   "analytics.cooling_period": "Kühlung",
   "analytics.window_open_period": "Fenster offen",
-  "analytics.blind_position": "Rolloposition (%)",
+  "analytics.blind_position": "Rolloposition",
   "analytics.chart_info_title": "So liest du dieses Diagramm",
   "analytics.exported": "Exportiert!",
   "analytics.copy_diagnostics": "Modell-Diagnose",
