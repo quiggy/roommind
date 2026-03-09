@@ -973,7 +973,7 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         to_remove: list[str] = []
         for entity_entry in registry.entities.values():
             uid = entity_entry.unique_id
-            if not uid or not uid.startswith(f"{DOMAIN}_"):
+            if not isinstance(uid, str) or not uid.startswith(f"{DOMAIN}_"):
                 continue
 
             # Extract area_id: roommind_{area_id}_{suffix}

@@ -4253,6 +4253,35 @@ class TestCoverageGaps:
 
         mock_registry.async_remove.assert_not_called()
 
+    def test_cleanup_orphaned_entities_skips_non_string_unique_id(self, hass, mock_config_entry):
+        """cleanup_orphaned_entities skips entities with non-string unique_id (e.g. int)."""
+        from custom_components.roommind.const import DOMAIN
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+
+        store = MagicMock()
+        store.get_rooms.return_value = {"living_room": {}}
+        hass.data = {DOMAIN: {"store": store}}
+
+        entry_int_uid = MagicMock()
+        entry_int_uid.unique_id = 12345
+        entry_int_uid.entity_id = "sensor.some_other_integration"
+
+        entry_none_uid = MagicMock()
+        entry_none_uid.unique_id = None
+        entry_none_uid.entity_id = "sensor.no_uid"
+
+        mock_registry = MagicMock()
+        mock_registry.entities.values.return_value = [entry_int_uid, entry_none_uid]
+
+        with patch(
+            "homeassistant.helpers.entity_registry.async_get",
+            return_value=mock_registry,
+        ):
+            coordinator.cleanup_orphaned_entities()
+
+        mock_registry.async_remove.assert_not_called()
+
     # ------------------------------------------------------------------
     # _estimate_solar_peak_temp — learned beta_s and exception paths
     # ------------------------------------------------------------------
