@@ -24,6 +24,7 @@
 - **Vacation Mode** - Global setback temperature with end date for all rooms.
 - **Window/Door Pause** - Pauses climate control when windows or doors are open, with configurable open/close delays.
 - **Mold Risk Detection & Prevention** - Surface humidity estimation using the DIN 4108-2 method. Configurable notifications and automatic temperature raise to prevent mold growth.
+- **Automatic Blind/Cover Shading** - Smart cover deployment based on predicted solar overheating. Includes night close, manual override detection, and cover schedules.
 - **Valve Protection** - Periodic cycling of idle TRV valves to prevent seizing and calcification.
 - **Analytics Dashboard** - Temperature charts with heating power, solar irradiance, and model predictions over 24h to 90 days.
 - **Mobile Ready** - Responsive layout with HA-native toolbar for the companion app.
@@ -77,11 +78,16 @@ Manual Override > Vacation > Presence Away > Schedule Block > Comfort / Eco  (+M
 
 ### Full Control vs. Managed Mode
 
+An external temperature sensor is really where RoomMind starts to shine. It is the single most impactful addition for any room, unlocking the full potential of the thermal model, MPC optimization, and proportional device control.
+
 | | Full Control | Managed Mode |
 |---|---|---|
 | **When** | External temperature sensor assigned | No external sensor |
 | **How** | RoomMind decides heating/cooling/idle | Device self-regulates |
-| **TRV behavior** | Proportional setpoint (MPC) or boost (on/off) | Target temperature sent to device |
+| **Setpoints** | Proportional boost (e.g. 28°C to force heating at 80% power) | Exact target sent to device |
+| **Thermal model** | EKF learns room behavior, MPC optimizes | No learning, no optimization |
+
+In **Full Control**, RoomMind dynamically calculates device setpoints based on MPC power output. Instead of sending 22°C to a TRV or AC, it might send 28°C to force the device to heat at full capacity. This solves common issues where devices with inaccurate internal sensors or built-in deadbands refuse to turn on. Each room shows its current mode ("Full Control" or "Managed") in the detail view.
 
 ### MPC Climate Control
 

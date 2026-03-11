@@ -27,6 +27,7 @@ export class RsHeroStatus extends LitElement {
   @state() private _countdown = "";
   @state() private _editingName = false;
   @state() private _nameInput = "";
+  @state() private _controlModeInfoExpanded = false;
   private _countdownTimer?: ReturnType<typeof setInterval>;
 
   static styles = [
@@ -250,6 +251,39 @@ export class RsHeroStatus extends LitElement {
         text-decoration: underline;
       }
 
+      .hero-status-pills {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+        flex-shrink: 0;
+      }
+      .control-mode-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        cursor: pointer;
+      }
+      .control-mode-info-icon {
+        --mdc-icon-size: 14px;
+        opacity: 0.4;
+      }
+      .control-mode-badge:hover .control-mode-info-icon,
+      .control-mode-info-icon.active {
+        opacity: 0.8;
+      }
+      .control-mode-info-panel {
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--secondary-text-color);
+        background: var(--secondary-background-color);
+        border-radius: 8px;
+      }
+
       .uncontrolled-hint {
         font-size: 12px;
         color: var(--disabled-text-color, #9e9e9e);
@@ -379,6 +413,10 @@ export class RsHeroStatus extends LitElement {
     return nothing;
   }
 
+  private _toggleControlModeInfo(): void {
+    this._controlModeInfoExpanded = !this._controlModeInfoExpanded;
+  }
+
   private _onEditName(): void {
     this._nameInput = this.config?.display_name || "";
     this._editingName = true;
@@ -470,18 +508,53 @@ export class RsHeroStatus extends LitElement {
                   ></ha-icon-button>
                 </div>
               `}
-          ${live && !this.isOutdoor
+          ${!this.isOutdoor
             ? html`
-                <span class="mode-pill ${getModeClass(live.mode)}">
-                  <span class="mode-dot"></span>
-                  ${formatMode(live.mode, this.hass?.language ?? "en")}${live.heating_power > 0 &&
-                  live.heating_power < 100
-                    ? html` ${live.heating_power}%`
+                <div class="hero-status-pills">
+                  ${live
+                    ? html`
+                        <span class="mode-pill ${getModeClass(live.mode)}">
+                          <span class="mode-dot"></span>
+                          ${formatMode(
+                            live.mode,
+                            this.hass?.language ?? "en",
+                          )}${live.heating_power > 0 && live.heating_power < 100
+                            ? html` ${live.heating_power}%`
+                            : nothing}
+                        </span>
+                      `
                     : nothing}
-                </span>
+                  ${this.config
+                    ? html`
+                        <span class="control-mode-badge" @click=${this._toggleControlModeInfo}>
+                          ${this.config.temperature_sensor
+                            ? localize(
+                                "room.control_mode.full_control",
+                                this.hass?.language ?? "en",
+                              )
+                            : localize("room.control_mode.managed", this.hass?.language ?? "en")}
+                          <ha-icon
+                            class="control-mode-info-icon ${this._controlModeInfoExpanded
+                              ? "active"
+                              : ""}"
+                            icon="mdi:information-outline"
+                          ></ha-icon>
+                        </span>
+                      `
+                    : nothing}
+                </div>
               `
             : nothing}
         </div>
+        ${this._controlModeInfoExpanded && this.config && !this.isOutdoor
+          ? html`
+              <div class="control-mode-info-panel">
+                ${this.config.temperature_sensor
+                  ? localize("room.control_mode.full_control_info", this.hass?.language ?? "en")
+                  : localize("room.control_mode.managed_info", this.hass?.language ?? "en")}
+              </div>
+            `
+          : nothing}
         ${live
           ? html`
               ${live.window_open && !this.isOutdoor

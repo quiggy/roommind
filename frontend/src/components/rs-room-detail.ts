@@ -19,7 +19,6 @@ import "./rs-covers-section";
 import "../components/shared/rs-toggle-row";
 import { localize } from "../utils/localize";
 import { fireSaveStatus } from "../utils/events";
-
 import type { RsOverrideSection } from "./rs-override-section";
 
 @customElement("rs-room-detail")
@@ -30,6 +29,7 @@ export class RsRoomDetail extends LitElement {
   @property({ type: Boolean }) public presenceEnabled = false;
   @property({ attribute: false }) public presencePersons: string[] = [];
   @property({ type: Boolean }) public climateControlActive = true;
+
   @property({ type: Boolean }) public valveProtectionEnabled = false;
 
   @state() private _selectedThermostats: Set<string> = new Set();
