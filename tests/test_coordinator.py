@@ -2575,12 +2575,13 @@ class TestClimateControlDisabled:
         assert n_heating > 0, "EKF should have trained with heating observations"
 
     @pytest.mark.asyncio
-    async def test_missing_hvac_action_skips_training(self, hass, mock_config_entry):
-        """Device in heat mode without hvac_action → training should be skipped."""
+    async def test_missing_hvac_action_uses_inferred_mode(self, hass, mock_config_entry):
+        """Device in heat mode without hvac_action → training uses inferred mode (#69)."""
         store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
         store.get_settings.return_value = {"climate_control_active": False}
         hass.data = {"roommind": {"store": store}}
 
+        # Device in heat mode, current_temp (18) < setpoint (30) → inferred heating
         hass.states.get = MagicMock(
             side_effect=make_mock_states_get(
                 temp="18.0",
@@ -2588,7 +2589,7 @@ class TestClimateControlDisabled:
                 extra={
                     "climate.living_room": (
                         "heat",
-                        {"current_temperature": 18},
+                        {"current_temperature": 18, "temperature": 30},
                     ),
                 },
             ),
@@ -2602,7 +2603,7 @@ class TestClimateControlDisabled:
         n_idle, n_heating, n_cooling = coordinator._model_manager.get_mode_counts(
             "living_room_abc12345",
         )
-        assert n_idle == 0 and n_heating == 0 and n_cooling == 0, "No training should occur when hvac_action is missing"
+        assert n_heating > 0, "Training should use inferred heating when hvac_action is missing"
 
     @pytest.mark.asyncio
     async def test_inferred_heating_does_not_affect_previous_modes(self, hass, mock_config_entry):
@@ -4801,3 +4802,211 @@ class TestCoverageGaps:
         ]
         assert len(record_calls) == 1
         assert record_calls[0][0][1] == "living_room_abc12345"
+
+
+# --- Managed Mode display / training fixes (#69) ---
+
+MANAGED_ROOM = {
+    **SAMPLE_ROOM,
+    "temperature_sensor": "",  # No external sensor → Managed Mode
+}
+
+
+class TestManagedModeDisplay:
+    """Tests for Managed Mode display and EKF training fixes (#69)."""
+
+    @pytest.mark.asyncio
+    async def test_managed_mode_display_idle_at_setpoint(self, hass, mock_config_entry):
+        """Managed Mode: device at setpoint without hvac_action → display idle (#69)."""
+        store = _make_store_mock({"living_room_abc12345": MANAGED_ROOM})
+        hass.data = {"roommind": {"store": store}}
+
+        # Device in heat mode, current_temp (21) >= setpoint (21) → inferred idle
+        device_state = MagicMock()
+        device_state.state = "heat"
+        device_state.attributes = {
+            "current_temperature": 21.0,
+            "temperature": 21.0,
+            "hvac_modes": ["off", "heat"],
+        }
+        base_mock = make_mock_states_get(temp=None, humidity="55.0")
+
+        def custom_get(eid):
+            if eid == "climate.living_room":
+                return device_state
+            return base_mock(eid)
+
+        hass.states.get = MagicMock(side_effect=custom_get)
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+        data = await coordinator._async_update_data()
+
+        room = data["rooms"]["living_room_abc12345"]
+        assert room["mode"] == "idle", "Managed Mode should show idle when device is at setpoint"
+        assert room["heating_power"] == 0
+
+    @pytest.mark.asyncio
+    async def test_managed_mode_display_heating_below_setpoint(self, hass, mock_config_entry):
+        """Managed Mode: device below setpoint without hvac_action → display heating (#69)."""
+        store = _make_store_mock({"living_room_abc12345": MANAGED_ROOM})
+        hass.data = {"roommind": {"store": store}}
+
+        # Device in heat mode, current_temp (18) < setpoint (21) → inferred heating
+        device_state = MagicMock()
+        device_state.state = "heat"
+        device_state.attributes = {
+            "current_temperature": 18.0,
+            "temperature": 21.0,
+            "hvac_modes": ["off", "heat"],
+        }
+        base_mock = make_mock_states_get(temp=None, humidity="55.0")
+
+        def custom_get(eid):
+            if eid == "climate.living_room":
+                return device_state
+            return base_mock(eid)
+
+        hass.states.get = MagicMock(side_effect=custom_get)
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+        data = await coordinator._async_update_data()
+
+        room = data["rooms"]["living_room_abc12345"]
+        assert room["mode"] == "heating", "Managed Mode should show heating when device is below setpoint"
+        assert room["heating_power"] == 100
+
+    @pytest.mark.asyncio
+    async def test_managed_mode_display_uses_hvac_action(self, hass, mock_config_entry):
+        """Managed Mode: device with hvac_action=idle → display idle (#69)."""
+        store = _make_store_mock({"living_room_abc12345": MANAGED_ROOM})
+        hass.data = {"roommind": {"store": store}}
+
+        device_state = MagicMock()
+        device_state.state = "heat"
+        device_state.attributes = {
+            "hvac_action": "idle",
+            "current_temperature": 21.0,
+            "temperature": 21.0,
+            "hvac_modes": ["off", "heat"],
+        }
+        base_mock = make_mock_states_get(temp=None, humidity="55.0")
+
+        def custom_get(eid):
+            if eid == "climate.living_room":
+                return device_state
+            return base_mock(eid)
+
+        hass.states.get = MagicMock(side_effect=custom_get)
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+        data = await coordinator._async_update_data()
+
+        room = data["rooms"]["living_room_abc12345"]
+        assert room["mode"] == "idle", "Managed Mode should use hvac_action when available"
+
+    @pytest.mark.asyncio
+    async def test_managed_mode_ekf_trains_inferred_idle(self, hass, mock_config_entry):
+        """Managed Mode: EKF should train with inferred idle, not always heating (#69)."""
+        store = _make_store_mock({"living_room_abc12345": MANAGED_ROOM})
+        hass.data = {"roommind": {"store": store}}
+
+        # Device at setpoint → inferred idle. EKF should see idle, not heating.
+        device_state = MagicMock()
+        device_state.state = "heat"
+        device_state.attributes = {
+            "current_temperature": 21.0,
+            "temperature": 21.0,
+            "hvac_modes": ["off", "heat"],
+        }
+        base_mock = make_mock_states_get(temp=None, humidity="55.0")
+
+        def custom_get(eid):
+            if eid == "climate.living_room":
+                return device_state
+            return base_mock(eid)
+
+        hass.states.get = MagicMock(side_effect=custom_get)
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+        for _ in range(13):
+            await coordinator._async_update_data()
+
+        n_idle, n_heating, n_cooling = coordinator._model_manager.get_mode_counts(
+            "living_room_abc12345",
+        )
+        assert n_idle > 0, "EKF should have idle training samples in Managed Mode at setpoint"
+        assert n_heating == 0, "EKF should NOT train as heating when device is at setpoint"
+
+    @pytest.mark.asyncio
+    async def test_learn_only_infer_fallback(self, hass, mock_config_entry):
+        """Climate off, no hvac_action → training uses inferred mode, not skipped (#69)."""
+        store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
+        store.get_settings.return_value = {"climate_control_active": False}
+        hass.data = {"roommind": {"store": store}}
+
+        # Device in heat mode, at setpoint, no hvac_action → inferred idle
+        device_state = MagicMock()
+        device_state.state = "heat"
+        device_state.attributes = {
+            "current_temperature": 21.0,
+            "temperature": 21.0,
+            "hvac_modes": ["off", "heat"],
+        }
+        base_mock = make_mock_states_get(temp="21.0", humidity="55.0")
+
+        def custom_get(eid):
+            if eid == "climate.living_room":
+                return device_state
+            return base_mock(eid)
+
+        hass.states.get = MagicMock(side_effect=custom_get)
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+        for _ in range(13):
+            await coordinator._async_update_data()
+
+        n_idle, n_heating, n_cooling = coordinator._model_manager.get_mode_counts(
+            "living_room_abc12345",
+        )
+        assert n_idle > 0, "Learn-only mode should use inferred idle when hvac_action is missing"
+
+    @pytest.mark.asyncio
+    async def test_managed_mode_display_cooling_idle_at_setpoint(self, hass, mock_config_entry):
+        """Managed Mode cooling: AC at setpoint without hvac_action → display idle (#69)."""
+        managed_cool_room = {
+            **MANAGED_ROOM,
+            "thermostats": [],
+            "acs": ["climate.living_room"],
+            "climate_mode": "cool_only",
+        }
+        store = _make_store_mock({"living_room_abc12345": managed_cool_room})
+        hass.data = {"roommind": {"store": store}}
+
+        # AC in cool mode, current_temp (21) <= setpoint (22) → inferred idle
+        device_state = MagicMock()
+        device_state.state = "cool"
+        device_state.attributes = {
+            "current_temperature": 21.0,
+            "temperature": 22.0,
+            "hvac_modes": ["off", "cool"],
+        }
+        base_mock = make_mock_states_get(temp=None, humidity="55.0")
+
+        def custom_get(eid):
+            if eid == "climate.living_room":
+                return device_state
+            return base_mock(eid)
+
+        hass.states.get = MagicMock(side_effect=custom_get)
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+        data = await coordinator._async_update_data()
+
+        room = data["rooms"]["living_room_abc12345"]
+        assert room["mode"] == "idle", "Managed Mode should show idle when AC is at setpoint"

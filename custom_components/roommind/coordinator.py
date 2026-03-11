@@ -538,6 +538,13 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             # Climate control disabled (learn-only) — do NOT send commands,
             # do NOT touch mode/power_fraction (used for internal tracking).
             observed_mode, observed_pf = self._observe_device_action(room)
+            if observed_mode is None and self._devices_lack_hvac_action(room):
+                # No hvac_action on any device — fall back to temp-vs-setpoint
+                # inference for approximate training (better than skipping).
+                # Don't infer for other None reasons (conflicts, unavailable).
+                inferred = self._infer_device_mode(room)
+                observed_mode = inferred
+                observed_pf = 1.0 if inferred != MODE_IDLE else 0.0
             if observed_mode is not None and observed_mode != MODE_IDLE:
                 _LOGGER.debug(
                     "Room '%s': device self-regulating (%s), using for training",
@@ -546,6 +553,20 @@ class RoomMindCoordinator(DataUpdateCoordinator):
                 )
             mode = MODE_IDLE
             power_fraction = 0.0
+
+        # For Managed Mode rooms, observe actual device state for display + training.
+        # The controller's mode is "intent" (device told to heat), but the device
+        # self-regulates and may be idle at setpoint.  See #69.
+        managed_display_mode: str | None = None
+        managed_display_pf = 0.0
+        if climate_active and not has_external_sensor:
+            obs_mode, obs_pf = self._observe_device_action(room)
+            if obs_mode is not None:
+                managed_display_mode = obs_mode
+                managed_display_pf = obs_pf
+            else:
+                managed_display_mode = self._infer_device_mode(room)
+                managed_display_pf = 1.0 if managed_display_mode != MODE_IDLE else 0.0
 
         # --- Cover/blind automatic control ---
         has_override = room.get("override_temp") is not None and (
@@ -569,12 +590,18 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             heating_eids = [eid for eid in room.get("thermostats", []) if eid not in excluded]
             self._valve_manager.record_heating(heating_eids)
 
-        # Determine mode for EKF training: when control is disabled, use
-        # observed device state so self-regulating thermostats don't corrupt
-        # the model (see #36).
+        # Determine mode for EKF training: use observed device state when
+        # RoomMind doesn't directly control the device (see #36, #69).
         if climate_active:
-            ekf_mode: str | None = mode
-            ekf_pf = power_fraction
+            if has_external_sensor:
+                # Full Control: controller's commanded mode is truth
+                ekf_mode: str | None = mode
+                ekf_pf = power_fraction
+            else:
+                # Managed Mode: device self-regulates, use observed/inferred
+                # state to avoid training "always heating" (#69).
+                ekf_mode = managed_display_mode
+                ekf_pf = managed_display_pf
         else:
             ekf_mode = observed_mode  # may be None → skip training
             ekf_pf = observed_pf
@@ -614,12 +641,18 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         # Reuse MPC active status computed by cover orchestrator
         mpc_active = cover_result.mpc_active
 
-        # Compute display mode: when control is off, show actual device state
-        # without affecting internal tracking (residual heat, valve actuation,
-        # _previous_modes).  See #36.
+        # Compute display mode: show actual device state when RoomMind doesn't
+        # directly control the device, without affecting internal tracking
+        # (residual heat, valve actuation, _previous_modes).  See #36, #69.
         if climate_active:
-            display_mode = mode
-            display_pf = power_fraction
+            if has_external_sensor:
+                # Full Control: controller's mode is authoritative
+                display_mode = mode
+                display_pf = power_fraction
+            else:
+                # Managed Mode: show observed/inferred device state (#69)
+                display_mode = managed_display_mode if managed_display_mode is not None else mode
+                display_pf = managed_display_pf if managed_display_mode is not None else power_fraction
         else:
             if observed_mode is not None and observed_mode != MODE_IDLE:
                 display_mode = observed_mode
@@ -767,12 +800,27 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         pf = 1.0 if dominated in ("heating", "cooling") else 0.0
         return (dominated, pf)
 
+    def _devices_lack_hvac_action(self, room: dict) -> bool:
+        """Return True if at least one active device lacks hvac_action.
+
+        Used to distinguish 'missing attribute' from other reasons
+        _observe_device_action returns None (conflicts, unavailable, etc.).
+        """
+        for eid in room.get("thermostats", []) + room.get("acs", []):
+            state = self.hass.states.get(eid)
+            if state is None or state.state in ("unavailable", "unknown", "off"):
+                continue
+            if state.attributes.get("hvac_action") is None:
+                return True
+        return False
+
     def _infer_device_mode(self, room: dict) -> str:
         """Infer heating/cooling from hvac_mode when hvac_action is unavailable.
 
         Compares current_temperature to the device setpoint to avoid showing
         'Heating' when the thermostat is in heat mode but already at target.
-        Used only for dashboard display — EKF training uses _observe_device_action.
+        Used for display and as a fallback for EKF training when hvac_action
+        is missing (Managed Mode and learn-only mode).  See #69.
         """
         for eid in room.get("thermostats", []) + room.get("acs", []):
             state = self.hass.states.get(eid)
