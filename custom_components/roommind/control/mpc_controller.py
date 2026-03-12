@@ -740,6 +740,25 @@ class MPCController:
                         )
                     else:
                         await self._call("set_temperature", {"entity_id": eid, "temperature": ac_target})
+                elif not thermostats and can_heat and can_cool and "heat" in ac_modes and "cool" in ac_modes:
+                    # AC-only room, device supports heat+cool but not heat_cool:
+                    # use device's built-in temperature to pick the right mode.
+                    dev_temp = ac_state.attributes.get("current_temperature") if ac_state else None
+                    if dev_temp is not None and ha_cool_target is not None and dev_temp > ha_cool_target:
+                        await self._call("set_hvac_mode", {"entity_id": eid, "hvac_mode": "cool"})
+                        await self._call(
+                            "set_temperature",
+                            {"entity_id": eid, "temperature": ha_cool_target},
+                            temp_intent="cool",
+                        )
+                    else:
+                        ac_heat_t = ha_heat_target if ha_heat_target is not None else ha_cool_target
+                        await self._call("set_hvac_mode", {"entity_id": eid, "hvac_mode": "heat"})
+                        await self._call(
+                            "set_temperature",
+                            {"entity_id": eid, "temperature": ac_heat_t},
+                            temp_intent="heat",
+                        )
                 elif can_cool and "cool" in ac_modes:
                     await self._call("set_hvac_mode", {"entity_id": eid, "hvac_mode": "cool"})
                     await self._call(
