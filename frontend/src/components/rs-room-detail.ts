@@ -73,25 +73,6 @@ export class RsRoomDetail extends LitElement {
   @state() private _heatSourceOutdoorThreshold = 5.0;
   @state() private _heatSourceAcMinOutdoor = -15.0;
 
-  private get _selectedThermostats(): Set<string> {
-    return new Set(this._devices.filter((d) => d.type === "trv").map((d) => d.entity_id));
-  }
-
-  private get _selectedAcs(): Set<string> {
-    return new Set(this._devices.filter((d) => d.type !== "trv").map((d) => d.entity_id));
-  }
-
-  private get _heatingSystemType(): string {
-    const priority: Record<string, number> = { underfloor: 2, radiator: 1, "": 0 };
-    let best = "";
-    for (const d of this._devices) {
-      if (d.type !== "trv") continue;
-      const hst = d.heating_system_type ?? "";
-      if ((priority[hst] ?? 0) > (priority[best] ?? 0)) best = hst;
-    }
-    return best;
-  }
-
   private _prevAreaId: string | null = null;
   private _saveDebounce?: ReturnType<typeof setTimeout>;
 
@@ -297,10 +278,7 @@ export class RsRoomDetail extends LitElement {
     this._dirty = false;
 
     // Auto-detect editing mode
-    const hasDevices =
-      this._selectedThermostats.size > 0 ||
-      this._selectedAcs.size > 0 ||
-      !!this._selectedTempSensor;
+    const hasDevices = this._devices.length > 0 || !!this._selectedTempSensor;
     this._editingSchedule = this._schedules.length === 0;
     this._editingDevices = !hasDevices;
     this._editingCovers = this._selectedCovers.size === 0;
@@ -441,24 +419,20 @@ export class RsRoomDetail extends LitElement {
                     .hass=${this.hass}
                     .area=${this.area}
                     .editing=${this._editingDevices}
-                    .selectedThermostats=${this._selectedThermostats}
-                    .selectedAcs=${this._selectedAcs}
+                    .devices=${this._devices}
                     .selectedTempSensor=${this._selectedTempSensor}
                     .selectedHumiditySensor=${this._selectedHumiditySensor}
                     .selectedWindowSensors=${this._selectedWindowSensors}
                     .windowOpenDelay=${this._windowOpenDelay}
                     .windowCloseDelay=${this._windowCloseDelay}
-                    .heatingSystemType=${this._heatingSystemType}
                     .valveProtectionExclude=${this._valveProtectionExclude}
                     .valveProtectionEnabled=${this.valveProtectionEnabled}
-                    @climate-toggle=${this._onClimateToggle}
-                    @device-type-change=${this._onDeviceTypeChange}
+                    @device-changed=${this._onDeviceChanged}
                     @sensor-selected=${this._onSensorSelected}
                     @window-sensor-toggle=${this._onWindowSensorToggle}
                     @window-open-delay-changed=${this._onWindowOpenDelayChanged}
                     @window-close-delay-changed=${this._onWindowCloseDelayChanged}
                     @external-entity-added=${this._onExternalEntityAdded}
-                    @heating-system-type-changed=${this._onHeatingSystemTypeChanged}
                     @valve-protection-exclude-toggle=${this._onValveProtectionExcludeToggle}
                   ></rs-device-section>
                 </rs-section-card>
@@ -545,8 +519,8 @@ export class RsRoomDetail extends LitElement {
             : nothing}
           ${!this._isOutdoor &&
           this._selectedTempSensor &&
-          this._selectedThermostats.size > 0 &&
-          this._selectedAcs.size > 0
+          this._devices.some((d) => d.type === "trv") &&
+          this._devices.some((d) => d.type !== "trv")
             ? html`<rs-section-card
                 icon="mdi:swap-horizontal"
                 .heading=${localize("room.section.heat_source", this.hass.language)}
@@ -616,46 +590,27 @@ export class RsRoomDetail extends LitElement {
     this._autoSave();
   }
 
-  private _onClimateToggle(
-    e: CustomEvent<{
-      entityId: string;
-      checked: boolean;
-      detectedType: "thermostat" | "ac" | "heat_pump";
-    }>,
-  ) {
-    const { entityId, checked, detectedType } = e.detail;
-    if (checked) {
-      const deviceType: DeviceType =
-        detectedType === "thermostat" ? "trv" : detectedType === "heat_pump" ? "heat_pump" : "ac";
-      this._devices = [
-        ...this._devices,
-        { entity_id: entityId, type: deviceType, role: "auto" as DeviceRole },
-      ];
-    } else {
-      this._devices = this._devices.filter((d) => d.entity_id !== entityId);
-      // Also remove from valve protection exclude list
-      if (this._valveProtectionExclude.has(entityId)) {
+  private _onDeviceChanged(e: CustomEvent<{ devices: DeviceConfig[] }>) {
+    const oldDeviceIds = new Set(this._devices.map((d) => d.entity_id));
+    this._devices = e.detail.devices;
+    const newDeviceIds = new Set(this._devices.map((d) => d.entity_id));
+
+    // Clean up valve protection exclude list for removed devices
+    for (const eid of oldDeviceIds) {
+      if (!newDeviceIds.has(eid) && this._valveProtectionExclude.has(eid)) {
         const nextExclude = new Set(this._valveProtectionExclude);
-        nextExclude.delete(entityId);
+        nextExclude.delete(eid);
         this._valveProtectionExclude = nextExclude;
       }
     }
-    this._autoSave();
-  }
 
-  private _onDeviceTypeChange(e: CustomEvent<{ entityId: string; type: "thermostat" | "ac" }>) {
-    const { entityId, type } = e.detail;
-    const newType: DeviceType = type === "thermostat" ? "trv" : "ac";
-
-    this._devices = this._devices.map((d) =>
-      d.entity_id === entityId ? { ...d, type: newType } : d,
-    );
-
-    // Moving to AC: remove from valve protection exclude list
-    if (newType !== "trv" && this._valveProtectionExclude.has(entityId)) {
-      const nextExclude = new Set(this._valveProtectionExclude);
-      nextExclude.delete(entityId);
-      this._valveProtectionExclude = nextExclude;
+    // Moving to non-TRV: remove from valve protection exclude list
+    for (const d of this._devices) {
+      if (d.type !== "trv" && this._valveProtectionExclude.has(d.entity_id)) {
+        const nextExclude = new Set(this._valveProtectionExclude);
+        nextExclude.delete(d.entity_id);
+        this._valveProtectionExclude = nextExclude;
+      }
     }
 
     this._autoSave();
@@ -692,15 +647,6 @@ export class RsRoomDetail extends LitElement {
     this._autoSave();
   }
 
-  private _onHeatingSystemTypeChanged(e: CustomEvent<{ value: string }>) {
-    const hst = e.detail.value;
-    // Update heating_system_type on all TRV devices
-    this._devices = this._devices.map((d) =>
-      d.type === "trv" ? { ...d, heating_system_type: hst } : d,
-    );
-    this._autoSave();
-  }
-
   private _onValveProtectionExcludeToggle(e: CustomEvent<{ entityId: string; excluded: boolean }>) {
     const { entityId, excluded } = e.detail;
     const next = new Set(this._valveProtectionExclude);
@@ -716,19 +662,11 @@ export class RsRoomDetail extends LitElement {
   private _onExternalEntityAdded(
     e: CustomEvent<{
       entityId: string;
-      category: "climate" | "temp" | "humidity" | "window";
-      detectedType?: "thermostat" | "ac" | "heat_pump";
+      category: "temp" | "humidity" | "window";
     }>,
   ) {
-    const { entityId, category, detectedType } = e.detail;
-    if (category === "climate") {
-      const deviceType: DeviceType =
-        detectedType === "thermostat" ? "trv" : detectedType === "heat_pump" ? "heat_pump" : "ac";
-      this._devices = [
-        ...this._devices,
-        { entity_id: entityId, type: deviceType, role: "auto" as DeviceRole },
-      ];
-    } else if (category === "temp") {
+    const { entityId, category } = e.detail;
+    if (category === "temp") {
       this._selectedTempSensor = entityId;
     } else if (category === "window") {
       const next = new Set(this._selectedWindowSensors);
@@ -816,6 +754,15 @@ export class RsRoomDetail extends LitElement {
     this._error = "";
 
     try {
+      // Derive room-level heating_system_type from devices
+      const hstPriority: Record<string, number> = { underfloor: 2, radiator: 1, "": 0 };
+      let bestHst = "";
+      for (const d of this._devices) {
+        if (d.type !== "trv") continue;
+        const hst = d.heating_system_type ?? "";
+        if ((hstPriority[hst] ?? 0) > (hstPriority[bestHst] ?? 0)) bestHst = hst;
+      }
+
       await this.hass.callWS({
         type: "roommind/rooms/save",
         area_id: this.area.area_id,
@@ -834,7 +781,7 @@ export class RsRoomDetail extends LitElement {
         eco_cool: this._ecoCool,
         presence_persons: this._selectedPresencePersons.filter((p) => p),
         display_name: this._displayName,
-        heating_system_type: this._heatingSystemType, // computed from devices
+        heating_system_type: bestHst,
         covers: [...this._selectedCovers],
         covers_auto_enabled: this._coversAutoEnabled,
         covers_deploy_threshold: this._coversDeployThreshold,

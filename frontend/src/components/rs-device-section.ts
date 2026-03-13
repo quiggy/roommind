@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import type { HomeAssistant, HassArea } from "../types";
+import type { HomeAssistant, HassArea, DeviceConfig, DeviceType } from "../types";
 import { getEntitiesForArea } from "../utils/room-state";
 import { localize } from "../utils/localize";
 import { getSelectValue, openEntityInfo } from "../utils/events";
@@ -10,20 +10,37 @@ import { tempUnit } from "../utils/temperature";
 export class RsDeviceSection extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @property({ attribute: false }) public area!: HassArea;
-  @property({ attribute: false }) public selectedThermostats: Set<string> = new Set();
-  @property({ attribute: false }) public selectedAcs: Set<string> = new Set();
+  @property({ attribute: false }) public devices: DeviceConfig[] = [];
   @property({ type: String }) public selectedTempSensor = "";
   @property({ type: String }) public selectedHumiditySensor = "";
   @property({ attribute: false }) public selectedWindowSensors: Set<string> = new Set();
   @property({ type: Number }) public windowOpenDelay = 0;
   @property({ type: Number }) public windowCloseDelay = 0;
-  @property({ type: String }) public heatingSystemType = "";
   @property({ attribute: false }) public valveProtectionExclude: Set<string> = new Set();
   @property({ type: Boolean }) public valveProtectionEnabled = false;
 
   @property({ type: Boolean }) public editing = false;
   @state() private _systemTypeInfoExpanded = false;
   @state() private _showBoostHint = false;
+
+  private get _selectedThermostats(): Set<string> {
+    return new Set(this.devices.filter((d) => d.type === "trv").map((d) => d.entity_id));
+  }
+
+  private get _selectedAcs(): Set<string> {
+    return new Set(this.devices.filter((d) => d.type !== "trv").map((d) => d.entity_id));
+  }
+
+  private get _heatingSystemType(): string {
+    const priority: Record<string, number> = { underfloor: 2, radiator: 1, "": 0 };
+    let best = "";
+    for (const d of this.devices) {
+      if (d.type !== "trv") continue;
+      const hst = d.heating_system_type ?? "";
+      if ((priority[hst] ?? 0) > (priority[best] ?? 0)) best = hst;
+    }
+    return best;
+  }
 
   static styles = css`
     :host {
@@ -309,7 +326,7 @@ export class RsDeviceSection extends LitElement {
   }
 
   private _renderViewMode() {
-    const hasClimate = this.selectedThermostats.size > 0 || this.selectedAcs.size > 0;
+    const hasClimate = this._selectedThermostats.size > 0 || this._selectedAcs.size > 0;
     const hasTempSensor = !!this.selectedTempSensor;
     const hasHumiditySensor = !!this.selectedHumiditySensor;
 
@@ -320,8 +337,8 @@ export class RsDeviceSection extends LitElement {
               <div class="section-subtitle">
                 ${localize("devices.climate_entities", this.hass.language)}
               </div>
-              ${[...this.selectedThermostats].map((id) => this._renderViewRow(id, "climate"))}
-              ${[...this.selectedAcs].map((id) => this._renderViewRow(id, "climate"))}
+              ${[...this._selectedThermostats].map((id) => this._renderViewRow(id, "climate"))}
+              ${[...this._selectedAcs].map((id) => this._renderViewRow(id, "climate"))}
             </div>
           `
         : nothing}
@@ -370,7 +387,7 @@ export class RsDeviceSection extends LitElement {
             </div>
           `
         : nothing}
-      ${this.heatingSystemType
+      ${this._heatingSystemType
         ? html`
             <div class="device-group">
               <div class="section-subtitle">
@@ -378,11 +395,11 @@ export class RsDeviceSection extends LitElement {
               </div>
               <div class="view-row">
                 <span class="view-name"
-                  >${this.heatingSystemType === "radiator"
+                  >${this._heatingSystemType === "radiator"
                     ? localize("devices.system_type_radiator", this.hass.language)
-                    : this.heatingSystemType === "underfloor"
+                    : this._heatingSystemType === "underfloor"
                       ? localize("devices.system_type_underfloor", this.hass.language)
-                      : this.heatingSystemType}</span
+                      : this._heatingSystemType}</span
                 >
               </div>
             </div>
@@ -492,7 +509,7 @@ export class RsDeviceSection extends LitElement {
 
     // Find selected entities not in this area (manually added)
     const areaClimateIds = new Set(areaClimateEntities.map((e) => e.entity_id));
-    const allSelectedClimate = new Set([...this.selectedThermostats, ...this.selectedAcs]);
+    const allSelectedClimate = new Set(this.devices.map((d) => d.entity_id));
     const externalClimateIds = [...allSelectedClimate].filter((id) => !areaClimateIds.has(id));
 
     const areaTempIds = new Set(areaTempSensors.map((e) => e.entity_id));
@@ -591,7 +608,7 @@ export class RsDeviceSection extends LitElement {
                   @change=${this._onWindowCloseDelayChange}
                 ></ha-textfield>
               </div>
-              ${this.heatingSystemType === "underfloor" && this.windowOpenDelay < 300
+              ${this._heatingSystemType === "underfloor" && this.windowOpenDelay < 300
                 ? html`
                     <div class="delay-hint">
                       <ha-icon icon="mdi:information-outline"></ha-icon>
@@ -614,7 +631,7 @@ export class RsDeviceSection extends LitElement {
         ></ha-entity-picker>
       </div>
 
-      ${this.selectedThermostats.size > 0
+      ${this._selectedThermostats.size > 0
         ? html`
             <div class="device-group">
               <div class="subtitle-row">
@@ -637,7 +654,7 @@ export class RsDeviceSection extends LitElement {
                   `
                 : nothing}
               <ha-select
-                .value=${this.heatingSystemType || "standard"}
+                .value=${this._heatingSystemType || "standard"}
                 .options=${[
                   {
                     value: "standard",
@@ -687,8 +704,8 @@ export class RsDeviceSection extends LitElement {
   }
 
   private _renderClimateRow(entityId: string, external: boolean) {
-    const isThermostat = this.selectedThermostats.has(entityId);
-    const isAc = this.selectedAcs.has(entityId);
+    const isThermostat = this._selectedThermostats.has(entityId);
+    const isAc = this._selectedAcs.has(entityId);
     const isSelected = isThermostat || isAc;
     const entityState = this.hass.states[entityId];
     const friendlyName = (entityState?.attributes?.friendly_name as string) || entityId;
@@ -728,16 +745,23 @@ export class RsDeviceSection extends LitElement {
               <ha-select
                 class="device-type-select"
                 outlined
-                .value=${isAc ? "ac" : "thermostat"}
+                .value=${this._getDeviceDisplayType(entityId)}
                 .options=${[
                   {
                     value: "thermostat",
                     label: localize("devices.type_thermostat", this.hass.language),
                   },
                   { value: "ac", label: localize("devices.type_ac", this.hass.language) },
+                  {
+                    value: "heat_pump",
+                    label: localize("devices.type_heat_pump", this.hass.language),
+                  },
                 ]}
                 @selected=${(e: Event) => {
-                  this._onDeviceTypeChange(entityId, getSelectValue(e) as "thermostat" | "ac");
+                  this._onDeviceTypeChange(
+                    entityId,
+                    getSelectValue(e) as "thermostat" | "ac" | "heat_pump",
+                  );
                 }}
                 @closed=${(e: Event) => e.stopPropagation()}
                 fixedMenuPosition
@@ -747,6 +771,9 @@ export class RsDeviceSection extends LitElement {
                 >
                 <ha-list-item value="ac"
                   >${localize("devices.type_ac", this.hass.language)}</ha-list-item
+                >
+                <ha-list-item value="heat_pump"
+                  >${localize("devices.type_heat_pump", this.hass.language)}</ha-list-item
                 >
               </ha-select>
             `
@@ -856,24 +883,34 @@ export class RsDeviceSection extends LitElement {
     return "thermostat";
   }
 
-  private _onClimateToggle(entityId: string, checked: boolean) {
-    this.dispatchEvent(
-      new CustomEvent("climate-toggle", {
-        detail: { entityId, checked, detectedType: this._detectClimateType(entityId) },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+  private _getDeviceDisplayType(entityId: string): string {
+    const device = this.devices.find((d) => d.entity_id === entityId);
+    if (!device) return "thermostat";
+    if (device.type === "heat_pump") return "heat_pump";
+    if (device.type === "ac") return "ac";
+    return "thermostat";
   }
 
-  private _onDeviceTypeChange(entityId: string, type: "thermostat" | "ac") {
-    this.dispatchEvent(
-      new CustomEvent("device-type-change", {
-        detail: { entityId, type },
-        bubbles: true,
-        composed: true,
-      }),
+  private _onClimateToggle(entityId: string, checked: boolean) {
+    let newDevices: DeviceConfig[];
+    if (checked) {
+      const detected = this._detectClimateType(entityId);
+      const type: DeviceType =
+        detected === "thermostat" ? "trv" : detected === "ac" ? "ac" : "heat_pump";
+      newDevices = [...this.devices, { entity_id: entityId, type, role: "auto" }];
+    } else {
+      newDevices = this.devices.filter((d) => d.entity_id !== entityId);
+    }
+    this._fireDeviceChanged(newDevices);
+  }
+
+  private _onDeviceTypeChange(entityId: string, type: "thermostat" | "ac" | "heat_pump") {
+    const deviceType: DeviceType =
+      type === "thermostat" ? "trv" : type === "ac" ? "ac" : "heat_pump";
+    const newDevices = this.devices.map((d) =>
+      d.entity_id === entityId ? { ...d, type: deviceType } : d,
     );
+    this._fireDeviceChanged(newDevices);
   }
 
   private _onSensorSelected(entityId: string, type: "temp" | "humidity") {
@@ -932,9 +969,16 @@ export class RsDeviceSection extends LitElement {
     const raw = getSelectValue(e) ?? "";
     const value = raw === "standard" ? "" : raw;
     this._showBoostHint = true;
+    const newDevices = this.devices.map((d) =>
+      d.type === "trv" ? { ...d, heating_system_type: value } : d,
+    );
+    this._fireDeviceChanged(newDevices);
+  }
+
+  private _fireDeviceChanged(devices: DeviceConfig[]) {
     this.dispatchEvent(
-      new CustomEvent("heating-system-type-changed", {
-        detail: { value },
+      new CustomEvent("device-changed", {
+        detail: { devices },
         bubbles: true,
         composed: true,
       }),
@@ -947,7 +991,7 @@ export class RsDeviceSection extends LitElement {
     const idAfterDot = id.substring(id.indexOf(".") + 1);
     if (idAfterDot.startsWith("roommind_")) return false;
     // Exclude already-selected entities
-    if (this.selectedThermostats.has(id) || this.selectedAcs.has(id)) return false;
+    if (this.devices.some((d) => d.entity_id === id)) return false;
     if (this.selectedTempSensor === id) return false;
     if (this.selectedHumiditySensor === id) return false;
     if (this.selectedWindowSensors.has(id)) return false;
@@ -982,11 +1026,22 @@ export class RsDeviceSection extends LitElement {
       category = deviceClass === "humidity" ? "humidity" : "temp";
     }
 
-    const detectedType = category === "climate" ? this._detectClimateType(entityId) : undefined;
+    if (category === "climate") {
+      const detected = this._detectClimateType(entityId);
+      const type: DeviceType =
+        detected === "thermostat" ? "trv" : detected === "ac" ? "ac" : "heat_pump";
+      const newDevices = [...this.devices, { entity_id: entityId, type, role: "auto" as const }];
+      this._fireDeviceChanged(newDevices);
+      // Clear the picker value
+      const picker = e.target as HTMLElement & { value: string };
+      picker.value = "";
+      return;
+    }
 
+    // For non-climate entities, keep the external-entity-added event
     this.dispatchEvent(
       new CustomEvent("external-entity-added", {
-        detail: { entityId, category, detectedType },
+        detail: { entityId, category },
         bubbles: true,
         composed: true,
       }),
