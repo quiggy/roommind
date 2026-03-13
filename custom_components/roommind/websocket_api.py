@@ -319,6 +319,13 @@ async def websocket_save_room(
             )
             return
 
+    if ("thermostats" in config or "acs" in config) and "devices" not in config:
+        _LOGGER.warning(
+            "Room save for '%s' uses legacy thermostats/acs fields without devices. "
+            "This is deprecated and will be removed in a future version.",
+            area_id,
+        )
+
     room = await store.async_save_room(area_id, config)
 
     # Notify coordinator to create/update sensor entities for the room

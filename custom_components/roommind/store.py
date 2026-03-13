@@ -173,8 +173,6 @@ class RoomMindStore:
             eco_heat = config.get("eco_heat", config.get("eco_temp", DEFAULT_ECO_HEAT))
             room = {
                 "area_id": area_id,
-                "thermostats": config.get("thermostats", []),
-                "acs": config.get("acs", []),
                 "devices": config.get("devices", []),
                 "temperature_sensor": config.get("temperature_sensor", ""),
                 "humidity_sensor": config.get("humidity_sensor", ""),
@@ -220,18 +218,27 @@ class RoomMindStore:
                 room["thermostats"] = t
                 room["acs"] = a
                 room["heating_system_type"] = get_room_heating_system_type(room["devices"])
-            elif room.get("thermostats") or room.get("acs"):
+            elif "thermostats" in config or "acs" in config:
+                room["thermostats"] = config.get("thermostats", [])
+                room["acs"] = config.get("acs", [])
                 room["devices"] = legacy_to_devices(
-                    room.get("thermostats", []),
-                    room.get("acs", []),
+                    room["thermostats"],
+                    room["acs"],
                     room.get("heating_system_type", ""),
                 )
+            # Ensure legacy keys always exist (for backward compat)
+            room.setdefault("thermostats", [])
+            room.setdefault("acs", [])
             self._data[area_id] = room
             await self._async_save()
             return room
 
     async def async_update_room(self, area_id: str, changes: dict) -> dict:
-        """Merge changes into an existing room. Raises KeyError if not found."""
+        """Merge changes into an existing room. Raises KeyError if not found.
+
+        Note: Does NOT perform device sync (devices <-> thermostats/acs).
+        Use async_save_room() for changes involving device fields.
+        """
         if area_id not in self._data:
             raise KeyError(f"Room '{area_id}' not found")
 
