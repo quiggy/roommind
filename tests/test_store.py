@@ -450,3 +450,147 @@ async def test_save_room_heat_source_update_merges(store):
     assert updated["heat_source_orchestration"] is True
     # Other heat source defaults should remain from creation
     assert updated["heat_source_primary_delta"] == 1.5
+
+
+# ---------------------------------------------------------------------------
+# Unified Device Model migration and sync
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_migration_legacy_room_gets_devices(store):
+    """Room loaded without 'devices' key gets it via migration."""
+    stored_data = {
+        "rooms": {
+            "wohnzimmer": {
+                "area_id": "wohnzimmer",
+                "thermostats": ["climate.trv1", "climate.trv2"],
+                "acs": ["climate.ac1"],
+                "heating_system_type": "radiator",
+                "schedules": [],
+            }
+        }
+    }
+    store._store.async_load = AsyncMock(return_value=stored_data)
+    await store.async_load()
+
+    # Migration should have persisted
+    assert store._store.async_save.called
+
+    room = store.get_room("wohnzimmer")
+    assert "devices" in room
+    assert len(room["devices"]) == 3
+    # TRVs get the room-level heating_system_type
+    assert room["devices"][0] == {
+        "entity_id": "climate.trv1",
+        "type": "trv",
+        "role": "auto",
+        "heating_system_type": "radiator",
+    }
+    assert room["devices"][2] == {
+        "entity_id": "climate.ac1",
+        "type": "ac",
+        "role": "auto",
+        "heating_system_type": "",
+    }
+    # Legacy keys are consistent
+    assert room["thermostats"] == ["climate.trv1", "climate.trv2"]
+    assert room["acs"] == ["climate.ac1"]
+
+
+@pytest.mark.asyncio
+async def test_migration_room_with_devices_not_saved(store):
+    """Room already having 'devices' key does not trigger migration save."""
+    stored_data = {
+        "rooms": {
+            "wohnzimmer": {
+                "area_id": "wohnzimmer",
+                "thermostats": ["climate.trv1"],
+                "acs": [],
+                "devices": [{"entity_id": "climate.trv1", "type": "trv", "role": "auto", "heating_system_type": ""}],
+                "schedules": [],
+            }
+        }
+    }
+    store._store.async_load = AsyncMock(return_value=stored_data)
+    await store.async_load()
+
+    # No migration save needed
+    assert not store._store.async_save.called
+
+
+@pytest.mark.asyncio
+async def test_save_room_with_devices_syncs_legacy(store):
+    """Saving with 'devices' regenerates thermostats/acs from devices."""
+    await store.async_load()
+    room = await store.async_save_room(
+        "wohnzimmer",
+        {
+            "devices": [
+                {"entity_id": "climate.trv1", "type": "trv", "role": "auto", "heating_system_type": "underfloor"},
+                {"entity_id": "climate.hp1", "type": "heat_pump", "role": "auto", "heating_system_type": ""},
+            ],
+        },
+    )
+    assert room["thermostats"] == ["climate.trv1"]
+    assert room["acs"] == ["climate.hp1"]
+    assert room["heating_system_type"] == "underfloor"
+
+
+@pytest.mark.asyncio
+async def test_save_room_with_legacy_syncs_devices(store):
+    """Saving with thermostats/acs (no devices) regenerates devices."""
+    await store.async_load()
+    room = await store.async_save_room(
+        "wohnzimmer",
+        {
+            "thermostats": ["climate.trv1"],
+            "acs": ["climate.ac1"],
+            "heating_system_type": "radiator",
+        },
+    )
+    assert "devices" in room
+    assert len(room["devices"]) == 2
+    assert room["devices"][0]["type"] == "trv"
+    assert room["devices"][0]["heating_system_type"] == "radiator"
+    assert room["devices"][1]["type"] == "ac"
+
+
+@pytest.mark.asyncio
+async def test_update_existing_with_devices_syncs_legacy(store):
+    """Updating an existing room with 'devices' regenerates legacy keys."""
+    await store.async_load()
+    await store.async_save_room("wohnzimmer", {"thermostats": ["climate.trv1"]})
+    updated = await store.async_save_room(
+        "wohnzimmer",
+        {
+            "devices": [
+                {"entity_id": "climate.trv1", "type": "trv", "role": "auto", "heating_system_type": ""},
+                {"entity_id": "climate.trv2", "type": "trv", "role": "auto", "heating_system_type": ""},
+            ],
+        },
+    )
+    assert updated["thermostats"] == ["climate.trv1", "climate.trv2"]
+    assert updated["acs"] == []
+
+
+@pytest.mark.asyncio
+async def test_update_existing_with_legacy_syncs_devices(store):
+    """Updating an existing room with thermostats (no devices) regenerates devices."""
+    await store.async_load()
+    # Create room with devices
+    await store.async_save_room(
+        "wohnzimmer",
+        {
+            "devices": [{"entity_id": "climate.trv1", "type": "trv", "role": "auto", "heating_system_type": ""}],
+        },
+    )
+    # Update with legacy format (old frontend)
+    updated = await store.async_save_room(
+        "wohnzimmer",
+        {
+            "thermostats": ["climate.trv1", "climate.trv2"],
+            "acs": ["climate.ac1"],
+        },
+    )
+    assert len(updated["devices"]) == 3

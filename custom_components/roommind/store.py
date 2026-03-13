@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
@@ -17,6 +18,14 @@ from .const import (
     DEFAULT_HEAT_SOURCE_PRIMARY_DELTA,
     DOMAIN,
 )
+from .utils.device_utils import (
+    devices_to_legacy,
+    ensure_room_has_devices,
+    get_room_heating_system_type,
+    legacy_to_devices,
+)
+
+_LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
 STORAGE_KEY = DOMAIN
@@ -32,6 +41,13 @@ def _migrate_room_temps(room: dict) -> dict:
         room["eco_heat"] = room.get("eco_temp", DEFAULT_ECO_HEAT)
     if "eco_cool" not in room:
         room["eco_cool"] = DEFAULT_ECO_COOL
+    return room
+
+
+def _migrate_room(room: dict) -> dict:
+    """Apply all read-time migrations (safety net)."""
+    _migrate_room_temps(room)
+    ensure_room_has_devices(room)
     return room
 
 
@@ -56,6 +72,16 @@ class RoomMindStore:
         self._settings = stored.get("settings", {}) if stored else {}
         self._thermal_data = stored.get("thermal_data", {}) if stored else {}
 
+        # One-time migration: Legacy -> Unified Device Model
+        needs_save = False
+        for room in self._data.values():
+            if "devices" not in room:
+                ensure_room_has_devices(room)
+                needs_save = True
+        if needs_save:
+            await self._async_save()
+            _LOGGER.info("Migrated %d room(s) to unified device model", len(self._data))
+
     async def _async_save(self) -> None:
         """Persist current room data to the HA store."""
         await self._store.async_save(
@@ -66,7 +92,7 @@ class RoomMindStore:
         """Return a deep copy of all rooms (with migration applied)."""
         rooms = copy.deepcopy(dict(self._data))
         for room in rooms.values():
-            _migrate_room_temps(room)
+            _migrate_room(room)
         return rooms
 
     def get_room(self, area_id: str) -> dict | None:
@@ -75,7 +101,7 @@ class RoomMindStore:
         if room is None:
             return None
         result = copy.deepcopy(room)
-        _migrate_room_temps(result)
+        _migrate_room(result)
         return result
 
     def get_settings(self) -> dict:
@@ -125,6 +151,20 @@ class RoomMindStore:
                 existing["comfort_heat"] = config["comfort_temp"]
             if "eco_temp" in config and "eco_heat" not in config:
                 existing["eco_heat"] = config["eco_temp"]
+            # Directional device sync
+            if "devices" in config:
+                # New frontend: devices is source of truth -> regenerate legacy
+                t, a = devices_to_legacy(existing["devices"])
+                existing["thermostats"] = t
+                existing["acs"] = a
+                existing["heating_system_type"] = get_room_heating_system_type(existing["devices"])
+            elif "thermostats" in config or "acs" in config:
+                # Old frontend: legacy is source of truth -> regenerate devices
+                existing["devices"] = legacy_to_devices(
+                    existing.get("thermostats", []),
+                    existing.get("acs", []),
+                    existing.get("heating_system_type", ""),
+                )
             await self._async_save()
             return existing
         else:
@@ -135,6 +175,7 @@ class RoomMindStore:
                 "area_id": area_id,
                 "thermostats": config.get("thermostats", []),
                 "acs": config.get("acs", []),
+                "devices": config.get("devices", []),
                 "temperature_sensor": config.get("temperature_sensor", ""),
                 "humidity_sensor": config.get("humidity_sensor", ""),
                 "climate_mode": config.get("climate_mode", "auto"),
@@ -173,6 +214,18 @@ class RoomMindStore:
                     "heat_source_ac_min_outdoor", DEFAULT_HEAT_SOURCE_AC_MIN_OUTDOOR
                 ),
             }
+            # Directional device sync for new rooms
+            if "devices" in config and config["devices"]:
+                t, a = devices_to_legacy(room["devices"])
+                room["thermostats"] = t
+                room["acs"] = a
+                room["heating_system_type"] = get_room_heating_system_type(room["devices"])
+            elif room.get("thermostats") or room.get("acs"):
+                room["devices"] = legacy_to_devices(
+                    room.get("thermostats", []),
+                    room.get("acs", []),
+                    room.get("heating_system_type", ""),
+                )
             self._data[area_id] = room
             await self._async_save()
             return room

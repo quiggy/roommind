@@ -1718,3 +1718,50 @@ async def test_save_room_allows_normal_entities(ws_hass, store, connection):
     await _save_room(ws_hass, connection, msg)
     connection.send_result.assert_called_once()
     connection.send_error.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Unified Device Model: devices field in WS save
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_save_room_with_devices_accepted(ws_hass, store, connection):
+    """WS save with devices array is accepted and stored."""
+    await store.async_load()
+    msg = {
+        "id": 2,
+        "type": "roommind/rooms/save",
+        "area_id": "living_room",
+        "devices": [
+            {"entity_id": "climate.trv1", "type": "trv", "role": "auto", "heating_system_type": "radiator"},
+            {"entity_id": "climate.ac1", "type": "ac", "role": "auto", "heating_system_type": ""},
+        ],
+    }
+    await _save_room(ws_hass, connection, msg)
+    connection.send_result.assert_called_once()
+    room = connection.send_result.call_args[0][1]["room"]
+    assert room["devices"] == [
+        {"entity_id": "climate.trv1", "type": "trv", "role": "auto", "heating_system_type": "radiator"},
+        {"entity_id": "climate.ac1", "type": "ac", "role": "auto", "heating_system_type": ""},
+    ]
+    # Legacy keys should be synced
+    assert room["thermostats"] == ["climate.trv1"]
+    assert room["acs"] == ["climate.ac1"]
+
+
+@pytest.mark.asyncio
+async def test_save_room_devices_self_assignment_rejected(ws_hass, store, connection):
+    """Self-assignment check rejects RoomMind's own entities in devices."""
+    await store.async_load()
+    msg = {
+        "id": 2,
+        "type": "roommind/rooms/save",
+        "area_id": "living_room",
+        "devices": [
+            {"entity_id": "climate.roommind_living_room_trv", "type": "trv"},
+        ],
+    }
+    await _save_room(ws_hass, connection, msg)
+    connection.send_error.assert_called_once()
+    assert connection.send_error.call_args[0][1] == "invalid_entity"

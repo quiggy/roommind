@@ -45,6 +45,7 @@ def _get_coordinator(hass: HomeAssistant) -> RoomMindCoordinator | None:
 _ROOM_SAVE_FIELDS = (
     "thermostats",
     "acs",
+    "devices",
     "temperature_sensor",
     "humidity_sensor",
     "climate_mode",
@@ -225,6 +226,14 @@ async def websocket_list_rooms(
         vol.Required("area_id"): str,
         vol.Optional("thermostats"): [str],
         vol.Optional("acs"): [str],
+        vol.Optional("devices"): [
+            {
+                vol.Required("entity_id"): str,
+                vol.Required("type"): vol.In(["trv", "ac", "heat_pump"]),
+                vol.Optional("role", default="auto"): vol.In(["primary", "secondary", "auto"]),
+                vol.Optional("heating_system_type", default=""): vol.In(["", "radiator", "underfloor"]),
+            }
+        ],
         vol.Optional("temperature_sensor"): str,
         vol.Optional("humidity_sensor"): str,
         vol.Optional("climate_mode"): vol.In(CLIMATE_MODES),
@@ -291,6 +300,15 @@ async def websocket_save_room(
                     f"Cannot assign RoomMind's own entity '{eid}' to a room",
                 )
                 return
+    for device in config.get("devices", []):
+        eid = device.get("entity_id", "")
+        if eid.split(".", 1)[-1].startswith(own_prefix):
+            connection.send_error(
+                msg["id"],
+                "invalid_entity",
+                f"Cannot assign RoomMind's own entity '{eid}' to a room",
+            )
+            return
     for field in ("temperature_sensor", "humidity_sensor"):
         eid = config.get(field, "")
         if eid and eid.split(".", 1)[-1].startswith(own_prefix):
