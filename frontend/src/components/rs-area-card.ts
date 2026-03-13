@@ -370,7 +370,9 @@ export class RsAreaCard extends LitElement {
   render() {
     const hasClimateDevices = this.climateEntityCount > 0;
     const hasClimateSelected =
-      (this.config?.thermostats?.length ?? 0) > 0 || (this.config?.acs?.length ?? 0) > 0;
+      (this.config?.devices?.length ?? 0) > 0 ||
+      (this.config?.thermostats?.length ?? 0) > 0 ||
+      (this.config?.acs?.length ?? 0) > 0;
     const isOutdoor = this.config?.is_outdoor ?? false;
     const isConfigured = this.config !== null && hasClimateSelected && !isOutdoor;
     const live = this.config?.live;

@@ -163,6 +163,8 @@
   "devices.other_area": "Other area",
   "devices.type_thermostat": "Thermostat",
   "devices.type_ac": "AC",
+  "devices.type_heat_pump": "Heat Pump",
+  "devices.type_trv": "TRV",
   "devices.heating_system_type": "Heating System Type",
   "devices.heating_system_type_info": "After heating stops, radiators and especially underfloor systems continue to release stored heat. RoomMind accounts for this residual heat to avoid overshooting and improve model accuracy. Underfloor rooms also get longer minimum run times.",
   "devices.system_type_none": "Standard (no residual heat)",

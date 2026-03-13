@@ -846,11 +846,14 @@ export class RsDeviceSection extends LitElement {
 
   // ---- Event handlers ----
 
-  private _detectClimateType(entityId: string): "thermostat" | "ac" {
-    const modes = this.hass.states[entityId]?.attributes?.hvac_modes as string[] | undefined;
-    if (!modes) return "thermostat";
-    const canCool = modes.includes("cool") || modes.includes("heat_cool");
-    return canCool ? "ac" : "thermostat";
+  private _detectClimateType(entityId: string): "thermostat" | "ac" | "heat_pump" {
+    const state = this.hass.states[entityId];
+    const modes = (state?.attributes?.hvac_modes ?? []) as string[];
+    const canHeat = modes.some((m) => ["heat", "heat_cool", "auto"].includes(m));
+    const canCool = modes.some((m) => ["cool", "heat_cool"].includes(m));
+    if (canHeat && canCool) return "heat_pump";
+    if (canCool) return "ac";
+    return "thermostat";
   }
 
   private _onClimateToggle(entityId: string, checked: boolean) {

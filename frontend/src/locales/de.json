@@ -163,6 +163,8 @@
   "devices.other_area": "Anderer Bereich",
   "devices.type_thermostat": "Thermostat",
   "devices.type_ac": "Klimaanlage",
+  "devices.type_heat_pump": "Wärmepumpe",
+  "devices.type_trv": "TRV",
   "devices.heating_system_type": "Heizungstyp",
   "devices.heating_system_type_info": "Nach dem Abschalten geben Heizkörper und besonders Fußbodenheizungen gespeicherte Wärme weiter ab. RoomMind berücksichtigt diese Nachlaufwärme, um Überschwingen zu vermeiden und die Modellgenauigkeit zu verbessern. Fußbodenheizungen erhalten außerdem längere Mindestlaufzeiten.",
   "devices.system_type_none": "Standard (kein Nachlauf)",

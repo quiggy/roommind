@@ -51,10 +51,21 @@ export interface RoomLiveData {
   active_heat_sources: string | null;
 }
 
+export type DeviceType = "trv" | "ac" | "heat_pump";
+export type DeviceRole = "primary" | "secondary" | "auto";
+
+export interface DeviceConfig {
+  entity_id: string;
+  type: DeviceType;
+  role: DeviceRole;
+  heating_system_type?: string;
+}
+
 export interface RoomConfig {
   area_id: string;
   thermostats: string[];
   acs: string[];
+  devices?: DeviceConfig[];
   temperature_sensor: string;
   humidity_sensor: string;
   window_sensors: string[];
