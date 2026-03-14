@@ -277,17 +277,13 @@ export class RsRoomDetail extends LitElement {
     }
     this._dirty = false;
 
-    // Auto-detect editing mode only for new (unsaved) rooms.
-    // Saved rooms with empty selections should stay in display mode.
-    if (!this.config) {
-      this._editingSchedule = true;
-      this._editingDevices = true;
-      this._editingCovers = true;
-    } else {
-      this._editingSchedule = false;
-      this._editingDevices = false;
-      this._editingCovers = false;
-    }
+    // A room is "configured" once it has at least one device.
+    // Unconfigured rooms open all panels in edit mode (setup flow).
+    // Configured rooms open all panels in display mode (user clicks pen to edit).
+    const isConfigured = this._devices.length > 0;
+    this._editingSchedule = !isConfigured;
+    this._editingDevices = !isConfigured;
+    this._editingCovers = !isConfigured;
   }
 
   /** Expose effective override for hero-status via the override sub-component. */
