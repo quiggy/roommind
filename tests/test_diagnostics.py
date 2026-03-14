@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+import time
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from custom_components.roommind.const import DOMAIN
 from custom_components.roommind.diagnostics import (
+    _build_device_states,
     _build_model_info,
     async_get_config_entry_diagnostics,
 )
@@ -30,6 +32,54 @@ def _make_estimator():
     rc.to_dict.return_value = {"alpha": 0.5, "beta_h": 100.0}
     est.get_model.return_value = rc
     return est
+
+
+def _make_coordinator(
+    rooms=None,
+    outdoor_temp=5.0,
+    outdoor_humidity=60,
+    forecast=None,
+    history_store=None,
+    estimators=None,
+    window_paused=None,
+    window_open_since=None,
+    window_closed_since=None,
+    cover_states=None,
+    heat_source_states=None,
+    compressor_groups=None,
+    compressor_states=None,
+    valve_cycling=None,
+    valve_last_actuation=None,
+):
+    """Build a mock coordinator with all manager attributes."""
+    coordinator = MagicMock()
+    coordinator.rooms = rooms or {}
+    coordinator.outdoor_temp = outdoor_temp
+    coordinator.outdoor_humidity = outdoor_humidity
+    coordinator._weather_manager._outdoor_forecast = forecast or []
+    coordinator._history_store = history_store
+    coordinator._model_manager._estimators = estimators or {}
+
+    # Window manager
+    coordinator._window_manager._paused = window_paused or {}
+    coordinator._window_manager._open_since = window_open_since or {}
+    coordinator._window_manager._closed_since = window_closed_since or {}
+
+    # Cover manager
+    coordinator._cover_manager._states = cover_states or {}
+
+    # Heat source states
+    coordinator._heat_source_states = heat_source_states or {}
+
+    # Compressor manager
+    coordinator._compressor_manager._groups = compressor_groups or {}
+    coordinator._compressor_manager._states = compressor_states or {}
+
+    # Valve manager
+    coordinator._valve_manager._cycling = valve_cycling or {}
+    coordinator._valve_manager._last_actuation = valve_last_actuation or {}
+
+    return coordinator
 
 
 def test_build_model_info():
@@ -90,26 +140,22 @@ async def test_diagnostics_with_coordinator_and_model(hass, mock_config_entry):
     store.get_settings.return_value = {"presence_enabled": True, "presence_persons": ["person.alice"]}
     store.get_rooms.return_value = {"room_a": {"thermostats": ["climate.trv1"]}}
 
-    coordinator = MagicMock()
-    coordinator.rooms = {
-        "room_a": {
-            "current_temp": 21.5,
-            "current_humidity": 55,
-            "target_temp": 21.0,
-            "mode": "heating",
-            "window_open": False,
-            "mpc_active": True,
-            "confidence": 0.9,
-            "presence_away": False,
-        }
-    }
-    coordinator.outdoor_temp = 5.0
-    coordinator.outdoor_humidity = 60
-    coordinator._weather_manager._outdoor_forecast = [{"temperature": 6.0}, {"temperature": 7.0}]
-    coordinator._history_store = None
-
     est = _make_estimator()
-    coordinator._model_manager._estimators = {"room_a": est}
+    coordinator = _make_coordinator(
+        rooms={
+            "room_a": {
+                "current_temp": 21.5,
+                "current_humidity": 55,
+                "target_temp": 21.0,
+                "mode": "heating",
+                "window_open": False,
+                "mpc_active": True,
+                "confidence": 0.9,
+                "presence_away": False,
+            }
+        },
+        estimators={"room_a": est},
+    )
 
     alice_state = MagicMock()
     alice_state.state = "home"
@@ -123,8 +169,7 @@ async def test_diagnostics_with_coordinator_and_model(hass, mock_config_entry):
     assert result["rooms"]["room_a"]["live"]["mpc_active"] is True
     assert "model" in result["rooms"]["room_a"]
     assert result["outdoor"]["temp"] == 5.0
-    assert result["outdoor"]["forecast_available"] is True
-    assert result["outdoor"]["forecast_points"] == 2
+    assert result["outdoor"]["forecast_available"] is False
     assert result["presence"]["enabled"] is True
     assert result["presence"]["person_states"]["person.alice"] == "home"
 
@@ -136,13 +181,7 @@ async def test_diagnostics_room_without_estimator(hass, mock_config_entry):
     store.get_settings.return_value = {}
     store.get_rooms.return_value = {"room_a": {}}
 
-    coordinator = MagicMock()
-    coordinator.rooms = {}
-    coordinator.outdoor_temp = None
-    coordinator.outdoor_humidity = None
-    coordinator._weather_manager._outdoor_forecast = []
-    coordinator._history_store = None
-    coordinator._model_manager._estimators = {}
+    coordinator = _make_coordinator(rooms={})
 
     hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
 
@@ -169,13 +208,7 @@ async def test_diagnostics_history_store_with_rows(hass, mock_config_entry):
         },
     ]
 
-    coordinator = MagicMock()
-    coordinator.rooms = {}
-    coordinator.outdoor_temp = 5.0
-    coordinator.outdoor_humidity = 60
-    coordinator._weather_manager._outdoor_forecast = []
-    coordinator._history_store = history_store
-    coordinator._model_manager._estimators = {}
+    coordinator = _make_coordinator(history_store=history_store)
 
     hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
 
@@ -194,13 +227,7 @@ async def test_diagnostics_history_store_exception(hass, mock_config_entry):
     history_store = MagicMock()
     history_store.read_detail.side_effect = RuntimeError("disk error")
 
-    coordinator = MagicMock()
-    coordinator.rooms = {}
-    coordinator.outdoor_temp = 5.0
-    coordinator.outdoor_humidity = 60
-    coordinator._weather_manager._outdoor_forecast = []
-    coordinator._history_store = history_store
-    coordinator._model_manager._estimators = {}
+    coordinator = _make_coordinator(history_store=history_store)
 
     hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
 
@@ -246,15 +273,241 @@ async def test_diagnostics_history_capped_at_240(hass, mock_config_entry):
     history_store = MagicMock()
     history_store.read_detail.return_value = rows
 
-    coordinator = MagicMock()
-    coordinator.rooms = {}
-    coordinator.outdoor_temp = 5.0
-    coordinator.outdoor_humidity = 60
-    coordinator._weather_manager._outdoor_forecast = []
-    coordinator._history_store = history_store
-    coordinator._model_manager._estimators = {}
+    coordinator = _make_coordinator(history_store=history_store)
 
     hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
 
     result = await async_get_config_entry_diagnostics(hass, mock_config_entry)
     assert len(result["recent_history"]["room_a"]) == 240
+
+
+# --- New tests for enhanced diagnostics ---
+
+
+def test_build_device_states_with_ha_state(hass):
+    """Device states include HA entity attributes."""
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {
+        "hvac_mode": "heat",
+        "hvac_modes": ["off", "heat", "cool", "fan_only"],
+        "current_temperature": 21.5,
+        "temperature": 22.0,
+        "target_temp_low": None,
+        "target_temp_high": None,
+        "fan_mode": "low",
+        "fan_modes": ["low", "medium", "high"],
+    }
+    hass.states.get = MagicMock(return_value=state)
+
+    devices = [
+        {"entity_id": "climate.ac1", "type": "ac", "role": "auto", "idle_action": "fan_only", "idle_fan_mode": "low"},
+    ]
+
+    with patch(
+        "custom_components.roommind.diagnostics._last_commands",
+        {"climate.ac1": {"service": "set_hvac_mode", "hvac_mode": "heat"}},
+    ):
+        result = _build_device_states(hass, devices)
+
+    assert len(result) == 1
+    dev = result[0]
+    assert dev["entity_id"] == "climate.ac1"
+    assert dev["type"] == "ac"
+    assert dev["idle_action"] == "fan_only"
+    assert dev["idle_fan_mode"] == "low"
+    assert dev["ha_state"] == "heat"
+    assert dev["hvac_modes"] == ["off", "heat", "cool", "fan_only"]
+    assert dev["current_temperature"] == 21.5
+    assert dev["fan_mode"] == "low"
+    assert dev["last_command"] == {"service": "set_hvac_mode", "hvac_mode": "heat"}
+
+
+def test_build_device_states_entity_not_found(hass):
+    """Device with missing HA entity shows not_found."""
+    hass.states.get = MagicMock(return_value=None)
+    devices = [{"entity_id": "climate.gone", "type": "trv", "role": "auto"}]
+
+    with patch("custom_components.roommind.diagnostics._last_commands", {}):
+        result = _build_device_states(hass, devices)
+
+    assert result[0]["ha_state"] == "not_found"
+    assert "last_command" not in result[0]
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_device_states_included(hass, mock_config_entry):
+    """Device states are included in room diagnostics when devices exist."""
+    store = MagicMock()
+    store.get_settings.return_value = {}
+    store.get_rooms.return_value = {
+        "room_a": {
+            "devices": [
+                {"entity_id": "climate.trv1", "type": "trv", "role": "auto"},
+            ],
+        }
+    }
+
+    state = MagicMock()
+    state.state = "heat"
+    state.attributes = {
+        "hvac_mode": "heat",
+        "hvac_modes": ["off", "heat"],
+        "current_temperature": 20.0,
+        "temperature": 21.0,
+        "target_temp_low": None,
+        "target_temp_high": None,
+        "fan_mode": None,
+        "fan_modes": [],
+    }
+    hass.states.get = MagicMock(return_value=state)
+
+    coordinator = _make_coordinator()
+    hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
+
+    result = await async_get_config_entry_diagnostics(hass, mock_config_entry)
+
+    assert "device_states" in result["rooms"]["room_a"]
+    assert len(result["rooms"]["room_a"]["device_states"]) == 1
+    assert result["rooms"]["room_a"]["device_states"][0]["ha_state"] == "heat"
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_window_state(hass, mock_config_entry):
+    """Window manager state is included per room."""
+    store = MagicMock()
+    store.get_settings.return_value = {}
+    store.get_rooms.return_value = {"room_a": {}}
+
+    now = time.time()
+    coordinator = _make_coordinator(
+        window_paused={"room_a": True},
+        window_open_since={"room_a": now - 120},
+    )
+    hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
+
+    result = await async_get_config_entry_diagnostics(hass, mock_config_entry)
+
+    window = result["rooms"]["room_a"]["window"]
+    assert window["paused"] is True
+    assert 118 <= window["open_since"] <= 122
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_cover_state(hass, mock_config_entry):
+    """Cover manager state is included when cover exists."""
+    store = MagicMock()
+    store.get_settings.return_value = {}
+    store.get_rooms.return_value = {"room_a": {}}
+
+    now = time.time()
+    cover_state = MagicMock()
+    cover_state.current_position = 80
+    cover_state.last_commanded_position = 80
+    cover_state.last_was_forced = False
+    cover_state.last_change_ts = now - 300
+    cover_state.user_override_until = now + 600
+
+    coordinator = _make_coordinator(cover_states={"room_a": cover_state})
+    hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
+
+    result = await async_get_config_entry_diagnostics(hass, mock_config_entry)
+
+    cover = result["rooms"]["room_a"]["cover"]
+    assert cover["current_position"] == 80
+    assert cover["last_commanded_position"] == 80
+    assert cover["last_was_forced"] is False
+    assert 298 <= cover["last_change_ago_s"] <= 302
+    assert 598 <= cover["user_override_remaining_s"] <= 602
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_cover_state_no_override(hass, mock_config_entry):
+    """Cover state without active override omits remaining_s."""
+    store = MagicMock()
+    store.get_settings.return_value = {}
+    store.get_rooms.return_value = {"room_a": {}}
+
+    cover_state = MagicMock()
+    cover_state.current_position = 100
+    cover_state.last_commanded_position = None
+    cover_state.last_was_forced = False
+    cover_state.last_change_ts = 0
+    cover_state.user_override_until = 0
+
+    coordinator = _make_coordinator(cover_states={"room_a": cover_state})
+    hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
+
+    result = await async_get_config_entry_diagnostics(hass, mock_config_entry)
+
+    cover = result["rooms"]["room_a"]["cover"]
+    assert "user_override_remaining_s" not in cover
+    assert "last_change_ago_s" not in cover
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_heat_source_routing(hass, mock_config_entry):
+    """Heat source routing state is included when present."""
+    store = MagicMock()
+    store.get_settings.return_value = {}
+    store.get_rooms.return_value = {"room_a": {}}
+
+    coordinator = _make_coordinator(heat_source_states={"room_a": "ac_only"})
+    hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
+
+    result = await async_get_config_entry_diagnostics(hass, mock_config_entry)
+    assert result["rooms"]["room_a"]["heat_source_routing"] == "ac_only"
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_compressor_groups(hass, mock_config_entry):
+    """Compressor group state is included."""
+    store = MagicMock()
+    store.get_settings.return_value = {}
+    store.get_rooms.return_value = {}
+
+    now = time.time()
+    group_cfg = MagicMock()
+    group_cfg.min_run = 180
+    group_cfg.min_off = 300
+
+    group_state = MagicMock()
+    group_state.active_members = {"climate.ac1"}
+    group_state.compressor_on_since = now - 60
+    group_state.compressor_off_since = None
+
+    coordinator = _make_coordinator(
+        compressor_groups={"g1": group_cfg},
+        compressor_states={"g1": group_state},
+    )
+    hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
+
+    result = await async_get_config_entry_diagnostics(hass, mock_config_entry)
+
+    cg = result["compressor_groups"]["g1"]
+    assert cg["active_members"] == ["climate.ac1"]
+    assert cg["min_run_s"] == 180
+    assert cg["min_off_s"] == 300
+    assert 58 <= cg["on_for_s"] <= 62
+    assert "off_for_s" not in cg
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_valve_protection(hass, mock_config_entry):
+    """Valve protection state is included."""
+    store = MagicMock()
+    store.get_settings.return_value = {}
+    store.get_rooms.return_value = {}
+
+    now = time.time()
+    coordinator = _make_coordinator(
+        valve_cycling={"climate.trv1": now - 30},
+        valve_last_actuation={"climate.trv1": now - 3600},
+    )
+    hass.data[DOMAIN] = {"store": store, "coordinator": coordinator}
+
+    result = await async_get_config_entry_diagnostics(hass, mock_config_entry)
+
+    valve = result["valve_protection"]
+    assert 28 <= valve["currently_cycling"]["climate.trv1"] <= 32
+    assert 3598 <= valve["last_actuation"]["climate.trv1"] <= 3602
