@@ -441,18 +441,21 @@ export class RsDeviceSection extends LitElement {
 
     const device =
       type === "climate" ? this.devices.find((d) => d.entity_id === entityId) : undefined;
-    const showFanOnlyBadge = device?.idle_action === "fan_only";
+    const showIdleBadge = device?.idle_action === "fan_only" || device?.idle_action === "setback";
 
     return html`
       <div class="view-row">
         <span class="view-name entity-link" @click=${() => openEntityInfo(this, entityId)}
           >${friendlyName}</span
         >
-        ${showFanOnlyBadge
+        ${showIdleBadge
           ? html`<span class="valve-exclude-badge">
-              ${localize("devices.idle_action_fan_only", this.hass.language)}${device!.idle_fan_mode
-                ? ` (${device!.idle_fan_mode})`
-                : nothing}
+              ${device!.idle_action === "fan_only"
+                ? html`${localize("devices.idle_action_fan_only", this.hass.language)}${device!
+                    .idle_fan_mode
+                    ? ` (${device!.idle_fan_mode})`
+                    : nothing}`
+                : localize("devices.idle_action_setback", this.hass.language)}
             </span>`
           : nothing}
         ${showExcludeBadge
@@ -792,7 +795,7 @@ export class RsDeviceSection extends LitElement {
         const hvacModes = (entityState?.attributes?.hvac_modes ?? []) as string[];
         const supportsFanOnly = hvacModes.includes("fan_only");
         const device = this.devices.find((d) => d.entity_id === entityId);
-        if (!isSelected || !supportsFanOnly || device?.type !== "ac") return nothing;
+        if (!isSelected || device?.type !== "ac") return nothing;
         return html`
           <div class="idle-action-row">
             <ha-select
@@ -803,9 +806,17 @@ export class RsDeviceSection extends LitElement {
                   value: "off",
                   label: localize("devices.idle_action_off", this.hass.language),
                 },
+                ...(supportsFanOnly
+                  ? [
+                      {
+                        value: "fan_only",
+                        label: localize("devices.idle_action_fan_only", this.hass.language),
+                      },
+                    ]
+                  : []),
                 {
-                  value: "fan_only",
-                  label: localize("devices.idle_action_fan_only", this.hass.language),
+                  value: "setback",
+                  label: localize("devices.idle_action_setback", this.hass.language),
                 },
               ]}
               @selected=${(e: Event) => this._onIdleActionChange(entityId, getSelectValue(e)!)}
@@ -815,8 +826,13 @@ export class RsDeviceSection extends LitElement {
               <ha-list-item value="off"
                 >${localize("devices.idle_action_off", this.hass.language)}</ha-list-item
               >
-              <ha-list-item value="fan_only"
-                >${localize("devices.idle_action_fan_only", this.hass.language)}</ha-list-item
+              ${supportsFanOnly
+                ? html`<ha-list-item value="fan_only"
+                    >${localize("devices.idle_action_fan_only", this.hass.language)}</ha-list-item
+                  >`
+                : nothing}
+              <ha-list-item value="setback"
+                >${localize("devices.idle_action_setback", this.hass.language)}</ha-list-item
               >
             </ha-select>
             ${device.idle_action === "fan_only"
@@ -1027,7 +1043,7 @@ export class RsDeviceSection extends LitElement {
   private _onIdleActionChange(entityId: string, idleAction: string): void {
     const newDevices = this.devices.map((d) => {
       if (d.entity_id !== entityId) return d;
-      const updated = { ...d, idle_action: idleAction as "off" | "fan_only" };
+      const updated = { ...d, idle_action: idleAction as "off" | "fan_only" | "setback" };
       if (idleAction === "fan_only" && !d.idle_fan_mode) {
         updated.idle_fan_mode = "low";
       }

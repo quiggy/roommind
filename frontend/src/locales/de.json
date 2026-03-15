@@ -173,6 +173,7 @@
   "devices.idle_action": "Im Leerlauf",
   "devices.idle_action_off": "Ausschalten",
   "devices.idle_action_fan_only": "Nur Ventilator",
+  "devices.idle_action_setback": "Absenkung",
   "devices.idle_fan_mode": "Lüftergeschwindigkeit",
   "devices.valve_protection_excluded": "Vom Ventilschutz ausgenommen",
   "devices.valve_protection_exclude_hint": "Dieses Gerät wird nicht vom Ventilschutz bewegt (z.B. virtuelle Kessel-Entitäten)",

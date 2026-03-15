@@ -173,6 +173,7 @@
   "devices.idle_action": "When idle",
   "devices.idle_action_off": "Turn off",
   "devices.idle_action_fan_only": "Fan only",
+  "devices.idle_action_setback": "Setback",
   "devices.idle_fan_mode": "Fan speed",
   "devices.valve_protection_excluded": "Excluded from valve protection",
   "devices.valve_protection_exclude_hint": "This entity will not be cycled by valve protection (e.g. virtual boiler entities)",

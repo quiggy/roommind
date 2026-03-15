@@ -23,6 +23,8 @@ HST_PRIORITY = {"underfloor": 2, "radiator": 1, "": 0}
 IDLE_ACTION_OFF = "off"
 IDLE_ACTION_FAN_ONLY = "fan_only"
 DEFAULT_IDLE_FAN_MODE = "low"
+IDLE_ACTION_SETBACK = "setback"
+DEFAULT_IDLE_SETBACK_OFFSET = 2.0
 
 
 def legacy_to_devices(
