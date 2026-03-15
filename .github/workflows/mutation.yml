@@ -7,7 +7,7 @@ on:
 
 jobs:
   mutation-test:
-    name: "Mutate: ${{ matrix.module }}"
+    name: "Mutate: ${{ matrix.name }}"
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -15,14 +15,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module:
-          - custom_components/roommind/coordinator.py
-          - custom_components/roommind/control/
-          - custom_components/roommind/managers/
-          - custom_components/roommind/utils/
-          - custom_components/roommind/store.py
-          - custom_components/roommind/websocket_api.py
-          - custom_components/roommind/sensor.py custom_components/roommind/climate.py custom_components/roommind/switch.py custom_components/roommind/binary_sensor.py custom_components/roommind/diagnostics.py custom_components/roommind/services/
+        include:
+          - name: coordinator
+            paths: '["custom_components/roommind/coordinator.py"]'
+          - name: control
+            paths: '["custom_components/roommind/control/"]'
+          - name: managers
+            paths: '["custom_components/roommind/managers/"]'
+          - name: utils
+            paths: '["custom_components/roommind/utils/"]'
+          - name: store
+            paths: '["custom_components/roommind/store.py"]'
+          - name: websocket_api
+            paths: '["custom_components/roommind/websocket_api.py"]'
+          - name: entities
+            paths: '["custom_components/roommind/sensor.py", "custom_components/roommind/climate.py", "custom_components/roommind/switch.py", "custom_components/roommind/binary_sensor.py", "custom_components/roommind/diagnostics.py", "custom_components/roommind/services/"]'
     steps:
       - uses: actions/checkout@v4
 
@@ -37,19 +44,36 @@ jobs:
           pip install -r requirements-dev.txt
           pip install "mutmut>=3.5"
 
+      - name: Configure mutmut for this module
+        run: |
+          # Override paths_to_mutate in pyproject.toml for this job
+          python -c "
+          import tomllib, json
+          with open('pyproject.toml', 'rb') as f:
+              config = tomllib.load(f)
+          # Rewrite with only this job's paths
+          paths = json.loads('${{ matrix.paths }}')
+          lines = open('pyproject.toml').read()
+          old = 'paths_to_mutate = ' + repr(config['tool']['mutmut']['paths_to_mutate'])
+          new = 'paths_to_mutate = ' + repr(paths)
+          lines = lines.replace(old, new)
+          open('pyproject.toml', 'w').write(lines)
+          "
+          echo "=== mutmut config for this job ==="
+          grep paths_to_mutate pyproject.toml
+
       - name: Restore mutmut cache
         uses: actions/cache@v4
         with:
           path: .mutmut-cache
-          key: mutmut-${{ hashFiles('custom_components/**/*.py') }}-${{ strategy.job-index }}
+          key: mutmut-${{ matrix.name }}-${{ hashFiles('custom_components/**/*.py') }}
           restore-keys: |
-            mutmut-${{ hashFiles('custom_components/**/*.py') }}-${{ strategy.job-index }}
-            mutmut-
+            mutmut-${{ matrix.name }}-
 
       - name: Run mutation testing
         run: |
           # mutmut exits 1 when mutants survive (expected), 2+ on real errors
-          mutmut run ${{ matrix.module }} || EXIT=$?
+          mutmut run || EXIT=$?
           if [ "${EXIT:-0}" -ge 2 ]; then
             echo "::error::mutmut failed with exit code $EXIT"
             exit $EXIT
@@ -58,36 +82,39 @@ jobs:
       - name: Generate report
         if: always()
         run: |
-          # Stats summary (short, for GitHub Summary tab)
+          # Capture full results
           mutmut results > /tmp/mutmut-full.txt 2>&1 || true
-          grep -iE "killed|survived|total|score|untested|timeout" /tmp/mutmut-full.txt > /tmp/mutmut-stats.txt 2>/dev/null || true
-          SURVIVED=$(grep -c "^Survived" /tmp/mutmut-full.txt 2>/dev/null || echo "0")
 
-          echo "## Mutation: \`${{ matrix.module }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          cat /tmp/mutmut-stats.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Survived mutants:** $SURVIVED" >> $GITHUB_STEP_SUMMARY
+          # Summary for GitHub (full output, truncated from the start if too large)
+          echo "## Mutation: \`${{ matrix.name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ "$(wc -c < /tmp/mutmut-full.txt)" -gt 500000 ]; then
+            echo "... (truncated, full report in artifact)" >> $GITHUB_STEP_SUMMARY
+            tail -c 500000 /tmp/mutmut-full.txt >> $GITHUB_STEP_SUMMARY
+          else
+            cat /tmp/mutmut-full.txt >> $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
-          # Full report with survived mutant details (downloadable artifact)
-          MODULE_SLUG=$(echo "${{ matrix.module }}" | tr '/ ' '_' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
-          REPORT="mutation-report-${MODULE_SLUG}.txt"
-          echo "=== Mutation Report: ${{ matrix.module }} ===" > "$REPORT"
+          # Full artifact with survived details
+          REPORT="mutation-report-${{ matrix.name }}.txt"
+          echo "=== Mutation Report: ${{ matrix.name }} ===" > "$REPORT"
           echo "Date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$REPORT"
           echo "" >> "$REPORT"
-          echo "--- Stats ---" >> "$REPORT"
-          cat /tmp/mutmut-stats.txt >> "$REPORT" 2>/dev/null || true
-          echo "" >> "$REPORT"
-          echo "Survived mutants: $SURVIVED" >> "$REPORT"
+          echo "--- Results ---" >> "$REPORT"
+          cat /tmp/mutmut-full.txt >> "$REPORT"
           echo "" >> "$REPORT"
           echo "--- Survived Mutant Details ---" >> "$REPORT"
-          mutmut show survived >> "$REPORT" 2>&1 || true
+          # List survived mutants from the results, show each one
+          grep -oP '^[^ ]+' /tmp/mutmut-full.txt | while read -r name; do
+            mutmut show "$name" >> "$REPORT" 2>&1 || true
+          done
           echo "REPORT_FILE=$REPORT" >> $GITHUB_ENV
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mutation-report-${{ strategy.job-index }}
+          name: mutation-report-${{ matrix.name }}
           path: ${{ env.REPORT_FILE }}
           retention-days: 30
