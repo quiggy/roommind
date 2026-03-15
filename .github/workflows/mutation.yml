@@ -55,16 +55,39 @@ jobs:
             exit $EXIT
           fi
 
-      - name: Post summary
+      - name: Generate report
         if: always()
         run: |
+          # Stats summary (short, for GitHub Summary tab)
+          mutmut results > /tmp/mutmut-full.txt 2>&1 || true
+          grep -iE "killed|survived|total|score|untested|timeout" /tmp/mutmut-full.txt > /tmp/mutmut-stats.txt 2>/dev/null || true
+          SURVIVED=$(grep -c "^Survived" /tmp/mutmut-full.txt 2>/dev/null || echo "0")
+
           echo "## Mutation: \`${{ matrix.module }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          # Capture full output, write only the stats (first few lines) to summary
-          mutmut results > /tmp/mutmut-full.txt 2>&1 || true
-          # Extract lines with kill counts (typically "killed X out of Y")
-          grep -iE "killed|survived|total|score|untested|timeout" /tmp/mutmut-full.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-          # Count survived mutants
-          SURVIVED=$(grep -c "^Survived" /tmp/mutmut-full.txt 2>/dev/null || echo "0")
+          cat /tmp/mutmut-stats.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Survived mutants:** $SURVIVED" >> $GITHUB_STEP_SUMMARY
+
+          # Full report with survived mutant details (downloadable artifact)
+          MODULE_SLUG=$(echo "${{ matrix.module }}" | tr '/ ' '_' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
+          REPORT="mutation-report-${MODULE_SLUG}.txt"
+          echo "=== Mutation Report: ${{ matrix.module }} ===" > "$REPORT"
+          echo "Date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$REPORT"
+          echo "" >> "$REPORT"
+          echo "--- Stats ---" >> "$REPORT"
+          cat /tmp/mutmut-stats.txt >> "$REPORT" 2>/dev/null || true
+          echo "" >> "$REPORT"
+          echo "Survived mutants: $SURVIVED" >> "$REPORT"
+          echo "" >> "$REPORT"
+          echo "--- Survived Mutant Details ---" >> "$REPORT"
+          mutmut show survived >> "$REPORT" 2>&1 || true
+          echo "REPORT_FILE=$REPORT" >> $GITHUB_ENV
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-${{ strategy.job-index }}
+          path: ${{ env.REPORT_FILE }}
+          retention-days: 30
