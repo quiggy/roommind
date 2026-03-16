@@ -269,6 +269,100 @@ class TestFahrenheitConversion:
         temp_arg = set_temp_calls[0][0][2]["temperature"]
         assert temp_arg == pytest.approx(expected_f)
 
+    @pytest.mark.asyncio
+    async def test_fahrenheit_device_max_temp_converted_for_boost(self, hass, mock_config_entry):
+        """Device max_temp in Fahrenheit is converted to Celsius for boost target (#117)."""
+        from homeassistant.const import UnitOfTemperature
+
+        hass.config.units.temperature_unit = UnitOfTemperature.FAHRENHEIT
+
+        store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
+        hass.data = {"roommind": {"store": store}}
+
+        # TRV reports max_temp=95degF (= 35degC). Bug: treated as 95degC.
+        hass.states.get = MagicMock(
+            side_effect=make_mock_states_get(
+                temp="64.4",
+                humidity="55.0",
+                outdoor_temp="50",
+                temp_unit="°F",
+                extra={
+                    "climate.living_room": (
+                        "heat",
+                        {
+                            "current_temperature": 64.4,
+                            "temperature": 69.8,
+                            "max_temp": 95.0,
+                            "min_temp": 44.6,
+                            "hvac_modes": ["off", "heat"],
+                            "hvac_action": "heating",
+                        },
+                    ),
+                },
+            ),
+        )
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+        data = await coordinator._async_update_data()
+
+        room = data["rooms"]["living_room_abc12345"]
+        # device_setpoint is in Celsius. With the bug it would be ~95.
+        # After fix: boost = 35degC (converted from 95degF), so setpoint <= 35.
+        assert room["device_setpoint"] is not None
+        assert room["device_setpoint"] <= 35.0
+
+    @pytest.mark.asyncio
+    async def test_fahrenheit_set_temperature_uses_converted_boost(self, hass, mock_config_entry):
+        """set_temperature call must not exceed device max in Fahrenheit (#117)."""
+        from homeassistant.const import UnitOfTemperature
+
+        hass.config.units.temperature_unit = UnitOfTemperature.FAHRENHEIT
+
+        store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
+        hass.data = {"roommind": {"store": store}}
+
+        # TRV reports max_temp=95degF (= 35degC)
+        hass.states.get = MagicMock(
+            side_effect=make_mock_states_get(
+                temp="64.4",
+                humidity="55.0",
+                outdoor_temp="50",
+                temp_unit="°F",
+                extra={
+                    "climate.living_room": (
+                        "heat",
+                        {
+                            "current_temperature": 64.4,
+                            "temperature": 69.8,
+                            "max_temp": 95.0,
+                            "min_temp": 44.6,
+                            "hvac_modes": ["off", "heat"],
+                            "hvac_action": "heating",
+                        },
+                    ),
+                },
+            ),
+        )
+        hass.services.async_call = AsyncMock()
+
+        coordinator = _create_coordinator(hass, mock_config_entry)
+        await coordinator._async_update_data()
+
+        # Find set_temperature calls for the TRV
+        set_temp_calls = [
+            c
+            for c in hass.services.async_call.call_args_list
+            if c[0][0] == "climate"
+            and c[0][1] == "set_temperature"
+            and c[0][2].get("entity_id") == "climate.living_room"
+        ]
+        assert set_temp_calls
+        # Temperature must be <= 95degF (device max). With the bug it would be 203degF.
+        temp_arg = set_temp_calls[0][0][2].get("temperature")
+        if temp_arg is not None:
+            assert temp_arg <= 95.0, f"set_temperature sent {temp_arg}degF, exceeds device max 95degF"
+
 
 class TestManagedModeDisplay:
     """Tests for Managed Mode display and EKF training fixes (#69)."""

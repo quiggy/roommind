@@ -498,7 +498,7 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         for eid in get_trv_eids(room.get("devices", [])):
             st = self.hass.states.get(eid)
             if st and st.attributes.get("max_temp") is not None:
-                trv_max_temps.append(st.attributes["max_temp"])
+                trv_max_temps.append(ha_temp_to_celsius(self.hass, st.attributes["max_temp"]))
         device_max_temp = min(trv_max_temps) if trv_max_temps else None
 
         ac_min_temps: list[float] = []
@@ -507,9 +507,9 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             st = self.hass.states.get(eid)
             if st:
                 if st.attributes.get("min_temp") is not None:
-                    ac_min_temps.append(st.attributes["min_temp"])
+                    ac_min_temps.append(ha_temp_to_celsius(self.hass, st.attributes["min_temp"]))
                 if st.attributes.get("max_temp") is not None:
-                    ac_max_temps.append(st.attributes["max_temp"])
+                    ac_max_temps.append(ha_temp_to_celsius(self.hass, st.attributes["max_temp"]))
         device_min_temp = max(ac_min_temps) if ac_min_temps else None
         ac_device_max_temp = min(ac_max_temps) if ac_max_temps else None
 
