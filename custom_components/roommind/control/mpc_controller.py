@@ -64,6 +64,12 @@ def _cache_entry(service: str, data: dict) -> dict[str, Any]:
     }
 
 
+def _snap_to_step(value: float, step: float | None) -> float:
+    if step is None or step <= 0:
+        return value
+    return round(round(value / step) * step, 2)
+
+
 def clear_command_cache() -> None:
     """Clear the sent-command cache (for tests)."""
     _last_commands.clear()
@@ -234,6 +240,13 @@ async def async_idle_device(
             ha_t = max(ha_t, float(min_t))
         if max_t is not None:
             ha_t = min(ha_t, float(max_t))
+        step = state.attributes.get("target_temp_step")
+        if step is not None:
+            ha_t = _snap_to_step(ha_t, float(step))
+            if min_t is not None:
+                ha_t = max(ha_t, float(min_t))
+            if max_t is not None:
+                ha_t = min(ha_t, float(max_t))
 
         # Redundancy check: already at setback temp
         current_temp_attr = state.attributes.get("temperature")
@@ -1324,6 +1337,31 @@ class MPCController:
                 data = {**data, "target_temp_low": dev_min}
             if dev_max is not None and data["target_temp_high"] > dev_max:
                 data = {**data, "target_temp_high": dev_max}
+
+        # Snap to device's target_temp_step (e.g. 1.0 for ACs that only accept integers)
+        if service == "set_temperature" and state:
+            step = state.attributes.get("target_temp_step")
+            if step is not None:
+                step = float(step)
+                dev_min = state.attributes.get("min_temp")
+                dev_max = state.attributes.get("max_temp")
+                if "temperature" in data:
+                    t = _snap_to_step(data["temperature"], step)
+                    if dev_max is not None and t > dev_max:
+                        t = dev_max
+                    if dev_min is not None and t < dev_min:
+                        t = dev_min
+                    data = {**data, "temperature": t}
+                if "target_temp_low" in data:
+                    lo = _snap_to_step(data["target_temp_low"], step)
+                    if dev_min is not None and lo < dev_min:
+                        lo = dev_min
+                    data = {**data, "target_temp_low": lo}
+                if "target_temp_high" in data:
+                    hi = _snap_to_step(data["target_temp_high"], step)
+                    if dev_max is not None and hi > dev_max:
+                        hi = dev_max
+                    data = {**data, "target_temp_high": hi}
 
         # --- Redundancy: primary (device state) then fallback (sent cache) ---
         skip = False
